@@ -100,6 +100,7 @@ class Question(Base):
     question_type = Column(String, default="mcq")  # mcq (trắc nghiệm) | essay (tự luận)
     difficulty = Column(String, default="medium")  # easy | medium | hard
     source = Column(String, default="manual")       # manual | ai_generated
+    topic = Column(String, nullable=True)             # chủ đề cụ thể, VD "Este", "Đạo hàm" — dùng để AI Tutor theo dõi điểm yếu
     explanation = Column(Text, nullable=True)        # giải thích đáp án đúng, hiện khi làm sai
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

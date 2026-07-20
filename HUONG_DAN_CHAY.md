@@ -259,3 +259,53 @@ Chỉ thêm code mới, không đổi cấu trúc bảng.
 
 ## Lưu ý
 - Câu hỏi AI tạo ra được **lưu thẳng vào database** (không phải nháp như "AI tạo câu hỏi" đơn lẻ) — vì đề thi cần tính nhất quán khi làm, không tiện cho xem trước từng câu. Nếu chất lượng không ưng, có thể xóa câu hỏi qua `/practice/questions/{id}` (DELETE) sau
+
+---
+
+# Giai đoạn 7 — AI Tutor (Gia sư chủ động)
+
+## Không cần cài thêm thư viện gì mới
+
+## ⚠️ Cập nhật database (bắt buộc)
+Thêm cột `topic` vào bảng Question — cần xóa database cũ:
+```
+cd D:\studyapp\backend
+del studyapp.db
+```
+
+## Khác biệt với "Luyện tập" thường
+| | Luyện tập / Đề thi thử | AI Gia sư |
+|---|---|---|
+| Phạm vi câu hỏi | Cả môn học (rộng) | 1 chủ đề cụ thể bạn chọn (hẹp, VD "Este") |
+| Biết bạn yếu gì | Không | Có — dựa lịch sử làm bài theo từng chủ đề |
+| Giải thích khi sai | Giải thích có sẵn (nếu có) | Có thêm nút "Giải thích sâu hơn" — AI viết giải thích riêng theo đúng lựa chọn sai của bạn |
+| Sau khi xong | Không có gì thêm | Gợi ý video liên quan tới đúng chủ đề vừa luyện |
+
+## Cách dùng
+1. Vào "Luyện tập" → tab "AI Gia sư"
+2. Chọn môn → bấm "Xem chủ đề đang yếu" (chỉ có dữ liệu sau khi bạn đã luyện qua AI Gia sư ít nhất 1 lần với chủ đề đó — lần đầu sẽ trống, đây là hành vi đúng, không phải lỗi)
+3. Gõ tên chủ đề cần luyện (VD: "Este", "Đạo hàm hàm hợp") — AI sẽ tìm nội dung liên quan trong TOÀN BỘ tài liệu đã xử lý của môn đó (không giới hạn 1 file như "AI tạo câu hỏi" trước)
+4. Làm bài — khi sai, có nút "🎓 Giải thích sâu hơn" để AI viết giải thích riêng dựa đúng vào lựa chọn sai của bạn
+5. Làm hết bài → tự động gợi ý video liên quan tới chủ đề đó (nếu có video đã xử lý Whisper chứa nội dung liên quan)
+
+## Lưu ý về độ chính xác "chủ đề đang yếu"
+Tính năng này CHỈ theo dõi các câu hỏi được tạo qua chính "AI Gia sư" (có gắn `topic`) — câu hỏi nhập tay hoặc từ "AI tạo câu hỏi"/"Đề thi thử" không có `topic` nên không tính vào thống kê này. Đây là giới hạn thiết kế, không phải lỗi.
+
+---
+
+# Giai đoạn 8 — Analytics (Dashboard hiểu người học)
+
+## Không cần cài thêm gì, không cần xóa database
+Chỉ thêm code mới (endpoint + trang), không đổi cấu trúc bảng.
+
+## Trang Dashboard giờ hiển thị
+1. **Tổng giờ học (ước tính)** — không phải số chính xác tuyệt đối, mà ước lượng dựa trên các hoạt động (làm bài, chat) gom thành từng phiên học. Nếu bạn mới dùng thử vài phút, số này sẽ rất nhỏ — đây là hành vi đúng, không phải lỗi.
+2. **% đúng theo từng môn** — thanh tiến độ trực quan
+3. **"AI nhận thấy bạn đang yếu nhất ở..."** — tự động tìm chủ đề có tỉ lệ đúng thấp nhất (trong các chủ đề đã luyện qua "AI Gia sư", cần ít nhất 2 lần làm mới tính), kèm gợi ý video liên quan nếu có
+
+## Vì sao "chưa đủ dữ liệu" khi mới cài đặt
+Phần "điểm yếu nhất" chỉ hoạt động sau khi bạn đã dùng "AI Gia sư" (Giai đoạn 7) để luyện ít nhất 1 chủ đề, làm ít nhất 2 câu của chủ đề đó. Nếu bạn chỉ dùng "Luyện tập" thường hoặc "Đề thi thử" (không gắn `topic`), Dashboard sẽ không có dữ liệu để phân tích theo chủ đề — đây là giới hạn thiết kế đã nêu ở Giai đoạn 7.
+
+## Logic có thể tự kiểm tra
+- `_estimate_study_hours`: sort mọi timestamp, gom nhóm nếu khoảng cách giữa 2 hoạt động liên tiếp ≤ 10 phút, mỗi phiên tính tối thiểu 1 phút (tránh trường hợp 1 hoạt động đơn lẻ tính ra 0 giờ)
+- Chỉ tính chủ đề có ≥ 2 lần làm vào "điểm yếu" — tránh kết luận vội vàng chỉ từ 1 câu sai

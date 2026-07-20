@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.database import Base, engine, DATA_DIR
-from app.api import structure, files, search, chat, rag, video, practice, flashcards
+from app.api import structure, files, search, chat, rag, video, practice, flashcards, tutor, analytics
 
 # Tạo bảng nếu chưa có (Giai đoạn 2 dùng luôn create_all cho đơn giản;
 # khi project lớn hơn nên chuyển sang Alembic để quản lý migration)
@@ -48,6 +48,8 @@ app.include_router(rag.router, prefix="/api", tags=["rag"])
 app.include_router(video.router, prefix="/api", tags=["video"])
 app.include_router(practice.router, prefix="/api", tags=["practice"])
 app.include_router(flashcards.router, prefix="/api", tags=["flashcards"])
+app.include_router(tutor.router, prefix="/api", tags=["tutor"])
+app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 
 # Cho phép frontend truy cập trực tiếp file (xem PDF, phát video) qua /data/...
 app.mount("/data", StaticFiles(directory=DATA_DIR), name="data")

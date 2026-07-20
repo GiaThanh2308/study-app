@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
+import Dashboard from "./pages/Dashboard";
 import Subjects from "./pages/Subjects";
 import Chat from "./pages/Chat";
 import Practice from "./pages/Practice";
@@ -14,7 +15,7 @@ export default function App() {
         <Sidebar />
         <div style={{ flex: 1, overflowY: "auto", height: "100vh" }}>
           <Routes>
-            <Route path="/" element={<Placeholder title="Dashboard" />} />
+            <Route path="/" element={<Dashboard />} />
             <Route path="/subjects" element={<Subjects />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/practice" element={<Practice />} />

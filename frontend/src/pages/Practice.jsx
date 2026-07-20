@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api";
 
-const TABS = ["Làm bài", "Đề thi thử", "Thêm câu hỏi", "AI tạo câu hỏi", "Flashcard"];
+const TABS = ["Làm bài", "Đề thi thử", "AI Gia sư", "Thêm câu hỏi", "AI tạo câu hỏi", "Flashcard"];
 
 export default function Practice() {
   const [tab, setTab] = useState("Làm bài");
@@ -29,6 +29,7 @@ export default function Practice() {
 
       {tab === "Làm bài" && <QuizTab subjects={subjects} />}
       {tab === "Đề thi thử" && <ExamTab subjects={subjects} />}
+      {tab === "AI Gia sư" && <TutorTab subjects={subjects} />}
       {tab === "Thêm câu hỏi" && <AddQuestionTab subjects={subjects} />}
       {tab === "AI tạo câu hỏi" && <AiGenerateTab subjects={subjects} />}
       {tab === "Flashcard" && <FlashcardTab subjects={subjects} />}
@@ -272,6 +273,214 @@ function ExamTab({ subjects }) {
           <div style={styles.explanationBox}>
             {result.is_correct ? "✅ Chính xác!" : "❌ Sai rồi."}
             {result.explanation && <p style={{ marginTop: 6 }}>{result.explanation}</p>}
+          </div>
+        )}
+
+        {!result ? (
+          <button style={styles.btn} onClick={submit} disabled={selectedAnswer === null}>Nộp đáp án</button>
+        ) : (
+          <button style={styles.btn} onClick={nextQuestion}>Câu tiếp theo</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------- AI Gia sư ----------------
+function TutorTab({ subjects }) {
+  const [subjectId, setSubjectId] = useState("");
+  const [weakTopics, setWeakTopics] = useState(null);
+  const [topic, setTopic] = useState("");
+  const [count, setCount] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [questions, setQuestions] = useState([]);
+  const [current, setCurrent] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [result, setResult] = useState(null);
+  const [score, setScore] = useState({ correct: 0, total: 0 });
+  const [deepExplain, setDeepExplain] = useState("");
+  const [explainLoading, setExplainLoading] = useState(false);
+  const [videoSuggestions, setVideoSuggestions] = useState(null);
+
+  const loadWeakTopics = async () => {
+    if (!subjectId) return;
+    const res = await api.get(`/tutor/weak-topics?subject_id=${subjectId}`);
+    setWeakTopics(res.data);
+  };
+
+  const startSession = async () => {
+    if (!subjectId || !topic.trim()) {
+      setError("Chọn môn học và nhập chủ đề cần luyện.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      const genRes = await api.post("/tutor/generate", { subject_id: Number(subjectId), topic, count });
+      const idsParam = genRes.data.question_ids.join(",");
+      const qRes = await api.get(`/practice/questions/by-ids?ids=${idsParam}`);
+      setQuestions(qRes.data);
+      setCurrent(0);
+      setResult(null);
+      setSelectedAnswer(null);
+      setScore({ correct: 0, total: 0 });
+      setVideoSuggestions(null);
+    } catch (e) {
+      setError(e.response?.data?.detail || "Không tạo được bài tập, thử lại.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submit = async () => {
+    if (selectedAnswer === null) return;
+    const q = questions[current];
+    const res = await api.post("/practice/submit", { question_id: q.id, answer_id: selectedAnswer });
+    setResult(res.data);
+    setDeepExplain("");
+    setScore((s) => ({ correct: s.correct + (res.data.is_correct ? 1 : 0), total: s.total + 1 }));
+  };
+
+  const askDeepExplain = async () => {
+    const q = questions[current];
+    setExplainLoading(true);
+    try {
+      const res = await api.post("/tutor/explain", { question_id: q.id, chosen_answer_id: selectedAnswer });
+      setDeepExplain(res.data.explanation);
+    } finally {
+      setExplainLoading(false);
+    }
+  };
+
+  const nextQuestion = async () => {
+    if (current + 1 >= questions.length) {
+      // Hết bài — gợi ý video liên quan tới chủ đề vừa luyện
+      const res = await api.get(`/tutor/suggest-video?subject_id=${subjectId}&topic=${encodeURIComponent(topic)}`);
+      setVideoSuggestions(res.data.suggestions);
+    }
+    setCurrent((c) => c + 1);
+    setSelectedAnswer(null);
+    setResult(null);
+    setDeepExplain("");
+  };
+
+  if (questions.length === 0) {
+    return (
+      <div style={{ maxWidth: 550 }}>
+        <p style={{ color: "#718096", fontSize: 13 }}>
+          AI Gia sư tạo bài tập nhắm ĐÚNG 1 chủ đề bạn chọn (dựa trên nội dung tài liệu đã xử lý AI),
+          và có thể chỉ ra bạn đang yếu chủ đề nào dựa trên lịch sử làm bài trước đó.
+        </p>
+
+        <select value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setWeakTopics(null); }} style={styles.select}>
+          <option value="">-- Chọn môn học --</option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+
+        {subjectId && (
+          <button style={{ ...styles.btn, marginBottom: 12 }} onClick={loadWeakTopics}>
+            Xem chủ đề đang yếu
+          </button>
+        )}
+
+        {weakTopics && weakTopics.length === 0 && (
+          <p style={{ color: "#718096", fontSize: 13 }}>
+            Chưa có đủ dữ liệu (cần từng luyện tập ít nhất 1 chủ đề trước qua AI Gia sư này).
+          </p>
+        )}
+        {weakTopics && weakTopics.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            {weakTopics.map((t) => (
+              <div key={t.topic} style={styles.weakTopicRow} onClick={() => setTopic(t.topic)}>
+                <span>{t.topic}</span>
+                <span style={{ color: t.percent_correct < 50 ? "#e53e3e" : "#dd6b20" }}>
+                  {t.percent_correct}% đúng ({t.attempts} lần)
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <input
+          placeholder="Chủ đề cần luyện (VD: Este, Đạo hàm, Dao động điều hòa...)"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          style={{ ...styles.input, width: "100%", boxSizing: "border-box", marginBottom: 10 }}
+        />
+        <div style={{ marginBottom: 10 }}>
+          Số câu: <input type="number" min={3} max={20} value={count} onChange={(e) => setCount(Number(e.target.value))} style={{ ...styles.input, width: 60 }} />
+        </div>
+
+        <button style={styles.btn} onClick={startSession} disabled={loading}>
+          {loading ? "Đang soạn bài tập..." : "Bắt đầu luyện tập chủ đề này"}
+        </button>
+        {error && <p style={{ color: "#c53030" }}>{error}</p>}
+      </div>
+    );
+  }
+
+  if (current >= questions.length) {
+    return (
+      <div style={styles.resultBox}>
+        <h3>Hoàn thành!</h3>
+        <p>Đúng {score.correct}/{score.total} câu về chủ đề "{topic}"</p>
+
+        {videoSuggestions && videoSuggestions.length > 0 && (
+          <div style={{ textAlign: "left", maxWidth: 400, margin: "16px auto" }}>
+            <h4>🎥 Video liên quan gợi ý xem lại</h4>
+            {videoSuggestions.map((v, i) => (
+              <div key={i} style={styles.weakTopicRow}>
+                <span>{v.source_name}</span>
+                <span style={{ color: "#718096" }}>phút {v.timestamp}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {videoSuggestions && videoSuggestions.length === 0 && (
+          <p style={{ color: "#718096", fontSize: 13 }}>Không có video liên quan tới chủ đề này trong dữ liệu đã xử lý.</p>
+        )}
+
+        <button style={styles.btn} onClick={() => setQuestions([])}>Luyện chủ đề khác</button>
+      </div>
+    );
+  }
+
+  const q = questions[current];
+  return (
+    <div>
+      <p style={{ color: "#718096" }}>Chủ đề: <b>{topic}</b> · Câu {current + 1}/{questions.length}</p>
+      <div style={styles.questionBox}>
+        <p style={{ fontWeight: 600 }}>{q.content}</p>
+        {q.answers.map((a) => {
+          let bg = "#fff";
+          if (result) {
+            if (a.id === result.correct_answer_id) bg = "#c6f6d5";
+            else if (a.id === selectedAnswer) bg = "#fed7d7";
+          } else if (a.id === selectedAnswer) {
+            bg = "#ebf8ff";
+          }
+          return (
+            <div key={a.id} style={{ ...styles.answerRow, background: bg }} onClick={() => !result && setSelectedAnswer(a.id)}>
+              {a.content}
+            </div>
+          );
+        })}
+
+        {result && (
+          <div style={styles.explanationBox}>
+            {result.is_correct ? "✅ Chính xác!" : "❌ Sai rồi."}
+            {result.explanation && <p style={{ marginTop: 6 }}>{result.explanation}</p>}
+
+            {!result.is_correct && !deepExplain && (
+              <button style={{ ...styles.btn, marginTop: 8, fontSize: 13 }} onClick={askDeepExplain} disabled={explainLoading}>
+                {explainLoading ? "AI đang giải thích..." : "🎓 Giải thích sâu hơn"}
+              </button>
+            )}
+            {deepExplain && <p style={{ marginTop: 8, background: "#fff", padding: 8, borderRadius: 6 }}>{deepExplain}</p>}
           </div>
         )}
 
@@ -601,4 +810,14 @@ const styles = {
   reviewBtnBad: { padding: "8px 14px", background: "#e53e3e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" },
   reviewBtnMed: { padding: "8px 14px", background: "#dd6b20", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" },
   reviewBtnGood: { padding: "8px 14px", background: "#38a169", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" },
+  weakTopicRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "8px 12px",
+    border: "1px solid #e2e8f0",
+    borderRadius: 6,
+    marginBottom: 6,
+    cursor: "pointer",
+    fontSize: 14,
+  },
 };

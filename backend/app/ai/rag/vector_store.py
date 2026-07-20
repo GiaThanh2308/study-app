@@ -89,6 +89,41 @@ def get_chunks_for_source(document_id: int | None = None, video_id: int | None =
     return result.get("documents", [])
 
 
+def query_within_sources(query_embedding: list[float], document_ids: list[int] = None, video_ids: list[int] = None, n_results: int = 4, content_type: str | None = None):
+    """
+    Tìm kiếm semantic nhưng giới hạn trong 1 tập nhiều document_id/video_id (dùng cho AI Tutor —
+    tìm nội dung liên quan tới 1 chủ đề trong TOÀN BỘ tài liệu của 1 môn học, không chỉ 1 file).
+    content_type: lọc riêng "pdf" hoặc "video" nếu cần, None = cả hai.
+    """
+    conditions = []
+    if document_ids:
+        conditions.append({"document_id": {"$in": document_ids}})
+    if video_ids:
+        conditions.append({"video_id": {"$in": video_ids}})
+
+    if not conditions:
+        return []
+
+    where = conditions[0] if len(conditions) == 1 else {"$or": conditions}
+    if content_type:
+        where = {"$and": [where, {"content_type": content_type}]}
+
+    results = _collection.query(query_embeddings=[query_embedding], n_results=n_results, where=where)
+
+    hits = []
+    if results["documents"]:
+        for text, meta, dist in zip(results["documents"][0], results["metadatas"][0], results["distances"][0]):
+            hit = {"text": text, "content_type": meta.get("content_type", "pdf"), "source_name": meta["source_name"], "distance": dist}
+            if meta.get("content_type") == "video":
+                hit["video_id"] = meta["video_id"]
+                hit["start_time"] = meta["start_time"]
+            else:
+                hit["document_id"] = meta.get("document_id")
+                hit["page"] = meta.get("page")
+            hits.append(hit)
+    return hits
+
+
 def delete_document(document_id: int):
     _collection.delete(where={"document_id": document_id})
 
