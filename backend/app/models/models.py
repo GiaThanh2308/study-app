@@ -89,3 +89,57 @@ class ChatMessage(Base):
     role = Column(String, nullable=False)   # "user" hoặc "assistant"
     content = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Question(Base):
+    __tablename__ = "questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    question_type = Column(String, default="mcq")  # mcq (trắc nghiệm) | essay (tự luận)
+    difficulty = Column(String, default="medium")  # easy | medium | hard
+    source = Column(String, default="manual")       # manual | ai_generated
+    explanation = Column(Text, nullable=True)        # giải thích đáp án đúng, hiện khi làm sai
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    subject = relationship("Subject")
+    answers = relationship("Answer", back_populates="question", cascade="all, delete-orphan")
+
+
+class Answer(Base):
+    __tablename__ = "answers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    is_correct = Column(Boolean, default=False)
+
+    question = relationship("Question", back_populates="answers")
+
+
+class StudyHistory(Base):
+    __tablename__ = "study_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    is_correct = Column(Boolean, nullable=False)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+
+    question = relationship("Question")
+
+
+class Flashcard(Base):
+    __tablename__ = "flashcards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    front = Column(Text, nullable=False)   # mặt trước: câu hỏi/thuật ngữ
+    back = Column(Text, nullable=False)    # mặt sau: đáp án/giải thích
+    review_count = Column(Integer, default=0)
+    ease_factor = Column(Integer, default=250)  # dùng cho thuật toán lặp lại ngắt quãng, x100 (VD 250 = 2.5)
+    interval_days = Column(Integer, default=1)   # số ngày tới lần ôn tiếp theo
+    next_review_date = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    subject = relationship("Subject")

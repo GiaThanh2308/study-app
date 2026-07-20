@@ -75,6 +75,20 @@ def query(query_embedding: list[float], n_results: int = 4, document_id: int | N
     return hits
 
 
+def get_chunks_for_source(document_id: int | None = None, video_id: int | None = None, limit: int = 6) -> list[str]:
+    """Lấy các đoạn text đã lưu của 1 tài liệu/video cụ thể, dùng làm nguyên liệu cho AI tạo câu hỏi."""
+    where = {}
+    if document_id:
+        where = {"document_id": document_id}
+    elif video_id:
+        where = {"video_id": video_id}
+    else:
+        return []
+
+    result = _collection.get(where=where, limit=limit)
+    return result.get("documents", [])
+
+
 def delete_document(document_id: int):
     _collection.delete(where={"document_id": document_id})
 

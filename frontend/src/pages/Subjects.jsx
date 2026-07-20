@@ -137,7 +137,7 @@ export default function Subjects() {
     if (type === "video") {
       await api.post("/upload/video", formData);
     } else {
-      formData.append("doc_type", "pdf");
+      formData.append("doc_type", type === "exam" ? "exam" : "pdf");
       await api.post("/upload/document", formData);
     }
     loadTree();
@@ -258,6 +258,17 @@ export default function Subjects() {
                             hidden
                             onChange={(e) =>
                               uploadFile(lesson.id, e.target.files[0], "pdf")
+                            }
+                          />
+                        </label>
+                        <label style={styles.uploadLabel}>
+                          + Đề thi
+                          <input
+                            type="file"
+                            accept=".pdf"
+                            hidden
+                            onChange={(e) =>
+                              uploadFile(lesson.id, e.target.files[0], "exam")
                             }
                           />
                         </label>

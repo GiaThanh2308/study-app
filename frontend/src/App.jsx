@@ -2,6 +2,9 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import Subjects from "./pages/Subjects";
 import Chat from "./pages/Chat";
+import Practice from "./pages/Practice";
+import Mistakes from "./pages/Mistakes";
+import Stats from "./pages/Stats";
 import Placeholder from "./pages/Placeholder";
 
 export default function App() {
@@ -14,9 +17,9 @@ export default function App() {
             <Route path="/" element={<Placeholder title="Dashboard" />} />
             <Route path="/subjects" element={<Subjects />} />
             <Route path="/chat" element={<Chat />} />
-            <Route path="/practice" element={<Placeholder title="Luyện tập" />} />
-            <Route path="/mistakes" element={<Placeholder title="Sổ lỗi sai" />} />
-            <Route path="/stats" element={<Placeholder title="Thống kê" />} />
+            <Route path="/practice" element={<Practice />} />
+            <Route path="/mistakes" element={<Mistakes />} />
+            <Route path="/stats" element={<Stats />} />
             <Route path="/settings" element={<Placeholder title="Cài đặt" />} />
           </Routes>
         </div>

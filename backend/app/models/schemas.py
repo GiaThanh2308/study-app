@@ -69,3 +69,65 @@ class ChapterTree(ChapterOut):
 
 class SubjectTree(SubjectOut):
     chapters: List[ChapterTree] = []
+
+
+# ---------- Luyện tập / Quiz ----------
+class AnswerCreate(BaseModel):
+    content: str
+    is_correct: bool = False
+
+
+class AnswerOut(AnswerCreate):
+    id: int
+    model_config = {"from_attributes": True}
+
+
+class QuestionCreate(BaseModel):
+    subject_id: int
+    content: str
+    question_type: str = "mcq"
+    difficulty: str = "medium"
+    explanation: Optional[str] = None
+    answers: List[AnswerCreate] = []
+
+
+class QuestionOut(BaseModel):
+    id: int
+    subject_id: int
+    content: str
+    question_type: str
+    difficulty: str
+    source: str
+    explanation: Optional[str]
+    answers: List[AnswerOut] = []
+    model_config = {"from_attributes": True}
+
+
+class SubmitAnswerRequest(BaseModel):
+    question_id: int
+    answer_id: int
+
+
+class SubmitAnswerResult(BaseModel):
+    is_correct: bool
+    correct_answer_id: int
+    explanation: Optional[str] = None
+
+
+# ---------- Flashcard ----------
+class FlashcardCreate(BaseModel):
+    subject_id: int
+    front: str
+    back: str
+
+
+class FlashcardOut(FlashcardCreate):
+    id: int
+    review_count: int
+    interval_days: int
+    next_review_date: Optional[datetime]
+    model_config = {"from_attributes": True}
+
+
+class FlashcardReviewRequest(BaseModel):
+    quality: int  # 0-5, người dùng tự đánh giá độ nhớ (0=quên hết, 5=nhớ rất rõ)
