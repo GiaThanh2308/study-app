@@ -8,10 +8,10 @@ export default function Stats() {
     api.get("/practice/stats").then((res) => setStats(res.data));
   }, []);
 
-  if (!stats) return <div style={{ padding: 24 }}>Đang tải...</div>;
+  if (!stats) return <div className="page">Đang tải...</div>;
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="page">
       <h2>Thống kê</h2>
 
       <div style={styles.overviewBox}>
@@ -44,14 +44,16 @@ export default function Stats() {
 
 const styles = {
   overviewBox: {
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius)",
+    boxShadow: "var(--shadow-sm)",
     padding: 24,
     textAlign: "center",
     maxWidth: 300,
+    background: "#fff",
   },
-  statNumber: { fontSize: 36, fontWeight: 700, color: "#3182ce" },
+  statNumber: { fontSize: 36, fontWeight: 700, color: "var(--color-primary)" },
   subjectRow: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, maxWidth: 500 },
-  barBg: { flex: 1, height: 10, background: "#e2e8f0", borderRadius: 5, overflow: "hidden" },
-  barFill: { height: "100%", background: "#38a169" },
+  barBg: { flex: 1, height: 10, background: "var(--color-border)", borderRadius: 5, overflow: "hidden" },
+  barFill: { height: "100%", background: "var(--color-success)" },
 };

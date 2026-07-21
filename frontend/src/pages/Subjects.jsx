@@ -144,7 +144,7 @@ export default function Subjects() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="page">
       <h2>Môn học</h2>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
@@ -317,33 +317,38 @@ export default function Subjects() {
 }
 
 const styles = {
-  input: { padding: 8, border: "1px solid #cbd5e0", borderRadius: 6, flex: 1 },
+  input: { padding: "9px 12px", border: "1px solid #cbd5e0", borderRadius: 8, flex: 1, fontSize: 14 },
   btn: {
-    padding: "8px 14px",
-    background: "#3182ce",
+    padding: "9px 16px",
+    background: "var(--color-primary)",
     color: "#fff",
     border: "none",
-    borderRadius: 6,
+    borderRadius: 8,
     cursor: "pointer",
+    fontSize: 14,
+    fontWeight: 500,
   },
   subjectCard: {
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
-    padding: 16,
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius)",
+    boxShadow: "var(--shadow-sm)",
+    padding: 18,
     marginBottom: 16,
+    background: "#fff",
   },
   chapterCard: {
-    background: "#f7fafc",
-    borderRadius: 6,
+    background: "var(--color-bg)",
+    borderRadius: 8,
     padding: 12,
-    marginTop: 8,
+    marginTop: 10,
+    border: "1px solid transparent",
   },
   lessonCard: {
     background: "#fff",
-    border: "1px solid #edf2f7",
-    borderRadius: 6,
-    padding: 10,
-    marginBottom: 6,
+    border: "1px solid var(--color-border)",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
   },
   uploadLabel: {
     fontSize: 12,

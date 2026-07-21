@@ -8,10 +8,10 @@ export default function Dashboard() {
     api.get("/analytics/overview").then((res) => setData(res.data));
   }, []);
 
-  if (!data) return <div style={{ padding: 24 }}>Đang tải...</div>;
+  if (!data) return <div className="page">Đang tải...</div>;
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="page">
       <h2>Dashboard</h2>
 
       <div style={styles.hoursBox}>
@@ -66,21 +66,24 @@ export default function Dashboard() {
 
 const styles = {
   hoursBox: {
-    border: "1px solid #e2e8f0",
-    borderRadius: 8,
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius)",
+    boxShadow: "var(--shadow-sm)",
     padding: 24,
     textAlign: "center",
     maxWidth: 240,
+    background: "#fff",
   },
-  hoursNumber: { fontSize: 36, fontWeight: 700, color: "#3182ce" },
+  hoursNumber: { fontSize: 36, fontWeight: 700, color: "var(--color-primary)" },
   subjectRow: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, maxWidth: 500 },
-  barBg: { flex: 1, height: 10, background: "#e2e8f0", borderRadius: 5, overflow: "hidden" },
-  barFill: { height: "100%", background: "#38a169" },
+  barBg: { flex: 1, height: 10, background: "var(--color-border)", borderRadius: 5, overflow: "hidden" },
+  barFill: { height: "100%", background: "var(--color-success)" },
   weakBox: {
     marginTop: 24,
     border: "1px solid #fbd38d",
-    background: "#fffaf0",
-    borderRadius: 8,
+    background: "var(--color-warning-light)",
+    borderRadius: "var(--radius)",
+    boxShadow: "var(--shadow-sm)",
     padding: 20,
     maxWidth: 500,
   },

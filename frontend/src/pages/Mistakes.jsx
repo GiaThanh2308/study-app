@@ -26,7 +26,7 @@ export default function Mistakes() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="page">
       <h2>Sổ lỗi sai</h2>
       <p style={{ color: "#718096", fontSize: 13 }}>
         Các câu hỏi mà lần làm gần nhất bị sai. Làm lại đúng trong "Luyện tập" sẽ tự động biến mất khỏi danh sách này.
@@ -60,21 +60,23 @@ export default function Mistakes() {
 }
 
 const styles = {
-  select: { padding: 8, border: "1px solid #cbd5e0", borderRadius: 6, marginBottom: 16 },
+  select: { padding: "9px 12px", border: "1px solid #cbd5e0", borderRadius: 8, marginBottom: 16, fontSize: 14 },
   card: {
     border: "1px solid #fed7d7",
-    background: "#fff5f5",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
+    background: "#fff",
+    borderRadius: "var(--radius)",
+    boxShadow: "var(--shadow-sm)",
+    borderLeft: "4px solid var(--color-danger)",
+    padding: 18,
+    marginBottom: 14,
     maxWidth: 650,
   },
   answerRow: {
-    padding: "6px 10px",
-    border: "1px solid #e2e8f0",
-    borderRadius: 6,
-    marginBottom: 4,
+    padding: "8px 12px",
+    border: "1px solid var(--color-border)",
+    borderRadius: 8,
+    marginBottom: 5,
     fontSize: 14,
   },
-  explanation: { fontSize: 13, color: "#718096", marginTop: 8 },
+  explanation: { fontSize: 13, color: "var(--color-text-muted)", marginTop: 8 },
 };
