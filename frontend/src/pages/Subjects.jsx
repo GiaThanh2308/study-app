@@ -1,24 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "../api";
 
-function statusBadge(status) {
-  const map = {
-    pending: { text: "Chưa xử lý", color: "#a0aec0", bg: "#f7fafc" },
-    processing: { text: "⏳ Đang xử lý...", color: "#c05621", bg: "#fffaf0" },
-    ready: { text: "✅ Sẵn sàng", color: "#276749", bg: "#f0fff4" },
-    error: { text: "❌ Lỗi xử lý", color: "#c53030", bg: "#fff5f5" },
-  };
-  const s = map[status] || map.pending;
+// 3 môn cố định — sửa danh sách này nếu muốn đổi môn
+const FIXED_SUBJECTS = [
+  { name: "Toán", icon: "📐", color: "#4f46e5", bg: "#eef1ff" },
+  { name: "Lý", icon: "⚡", color: "#b45309", bg: "#fef3e2" },
+  { name: "Hóa", icon: "🧪", color: "#0f766e", bg: "#e6f6f4" },
+];
+
+const STATUS_MAP = {
+  pending: { text: "Chưa xử lý", color: "#697180", bg: "#eef0f4", dot: "#a0a8b8" },
+  processing: { text: "Đang xử lý", color: "#b45309", bg: "#fef3e2", dot: "#f59e0b" },
+  ready: { text: "Sẵn sàng", color: "#0f766e", bg: "#e6f6f4", dot: "#0d9488" },
+  error: { text: "Lỗi xử lý", color: "#b91c1c", bg: "#fdeceb", dot: "#e53e3e" },
+};
+
+function StatusBadge({ status }) {
+  const s = STATUS_MAP[status] || STATUS_MAP.pending;
   return (
-    <span
-      style={{
-        fontSize: 11,
-        padding: "2px 8px",
-        borderRadius: 4,
-        color: s.color,
-        background: s.bg,
-      }}
-    >
+    <span style={{ ...styles.badge, color: s.color, background: s.bg }}>
+      <span style={{ ...styles.badgeDot, background: s.dot }} />
       {s.text}
     </span>
   );
@@ -26,30 +27,37 @@ function statusBadge(status) {
 
 export default function Subjects() {
   const [tree, setTree] = useState([]);
-  const [newSubject, setNewSubject] = useState("");
+  const [ready, setReady] = useState(false);
+  const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [expandedChapter, setExpandedChapter] = useState(null);
   const [newChapterName, setNewChapterName] = useState({});
   const [newLessonTitle, setNewLessonTitle] = useState({});
-  const [ragStatuses, setRagStatuses] = useState({}); // { [documentId]: "pending"|"processing"|"ready"|"error" }
-  const [ragProgress, setRagProgress] = useState({}); // { [documentId]: { percent, eta_seconds, current_page, total_pages } }
+  const [ragStatuses, setRagStatuses] = useState({});
+  const [ragProgress, setRagProgress] = useState({});
   const [videoRagStatuses, setVideoRagStatuses] = useState({});
   const [videoRagProgress, setVideoRagProgress] = useState({});
 
   const loadTree = async () => {
     const res = await api.get("/tree");
     setTree(res.data);
+    return res.data;
+  };
+
+  // Đảm bảo luôn tồn tại đúng 3 môn cố định — tạo hộ nếu backend chưa có
+  const ensureFixedSubjects = async () => {
+    const current = await loadTree();
+    const existingNames = new Set(current.map((s) => s.name));
+    const missing = FIXED_SUBJECTS.filter((s) => !existingNames.has(s.name));
+    if (missing.length > 0) {
+      await Promise.all(missing.map((s) => api.post("/subjects", { name: s.name })));
+      await loadTree();
+    }
+    setReady(true);
   };
 
   useEffect(() => {
-    loadTree();
+    ensureFixedSubjects();
   }, []);
-
-  const addSubject = async () => {
-    if (!newSubject.trim()) return;
-    await api.post("/subjects", { name: newSubject });
-    setNewSubject("");
-    loadTree();
-  };
 
   const addChapter = async (subjectId) => {
     const name = newChapterName[subjectId];
@@ -120,7 +128,7 @@ export default function Subjects() {
           return updated;
         });
       }
-    }, 2000); // hỏi lại mỗi 2 giây
+    }, 2000);
   };
 
   const formatEta = (seconds) => {
@@ -143,254 +151,413 @@ export default function Subjects() {
     loadTree();
   };
 
-  return (
-    <div className="page">
-      <h2>Môn học</h2>
+  // Map tên môn cố định -> dữ liệu thật từ backend (theo đúng tên)
+  const subjectBoxes = useMemo(
+    () => FIXED_SUBJECTS.map((fixed) => ({ ...fixed, data: tree.find((s) => s.name === fixed.name) })),
+    [tree]
+  );
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <input
-          placeholder="Tên môn học mới (VD: Toán)"
-          value={newSubject}
-          onChange={(e) => setNewSubject(e.target.value)}
-          style={styles.input}
-        />
-        <button onClick={addSubject} style={styles.btn}>+ Thêm môn</button>
+  const selectedSubject = tree.find((s) => s.id === selectedSubjectId);
+
+  if (!ready) return <div style={styles.loading}>Đang chuẩn bị môn học...</div>;
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.header}>
+        <div style={styles.eyebrow}>Quản lý nội dung học</div>
+        <h1 style={styles.title}>Môn học</h1>
       </div>
 
-      {tree.map((subject) => (
-        <div key={subject.id} style={styles.subjectCard}>
-          <h3>📘 {subject.name}</h3>
+      {/* 3 hộp môn cố định */}
+      <div style={styles.subjectGrid}>
+        {subjectBoxes.map((box) => {
+          const isSelected = box.data && box.data.id === selectedSubjectId;
+          const chapterCount = box.data ? box.data.chapters.length : 0;
+          return (
+            <button
+              key={box.name}
+              onClick={() => box.data && setSelectedSubjectId(isSelected ? null : box.data.id)}
+              style={{
+                ...styles.subjectBox,
+                borderColor: isSelected ? box.color : "#eceef2",
+                boxShadow: isSelected
+                  ? `0 0 0 3px ${box.bg}, 0 8px 20px -10px rgba(30,36,51,0.25)`
+                  : "0 1px 2px rgba(30,36,51,0.04)",
+              }}
+            >
+              <span style={{ ...styles.subjectBoxIcon, background: box.bg }}>{box.icon}</span>
+              <span style={styles.subjectBoxName}>{box.name}</span>
+              <span style={styles.subjectBoxMeta}>{chapterCount} chương</span>
+            </button>
+          );
+        })}
+      </div>
 
-          {subject.chapters.map((chapter) => (
-            <div key={chapter.id} style={styles.chapterCard}>
-              <div
-                style={{ cursor: "pointer", fontWeight: 600 }}
-                onClick={() =>
-                  setExpandedChapter(
-                    expandedChapter === chapter.id ? null : chapter.id
-                  )
-                }
-              >
-                📂 {chapter.name} ({chapter.lessons.length} bài)
-              </div>
+      {!selectedSubject && (
+        <div style={styles.hintBox}>
+          👆 Chọn 1 môn học ở trên để xem chương, bài học và tải tài liệu.
+        </div>
+      )}
 
-              {expandedChapter === chapter.id && (
-                <div style={{ marginLeft: 16, marginTop: 8 }}>
-                  {chapter.lessons.map((lesson) => (
-                    <div key={lesson.id} style={styles.lessonCard}>
-                      <div>📄 {lesson.title}</div>
-                      <div style={{ fontSize: 12, color: "#666", margin: "4px 0" }}>
-                        {lesson.videos.length} video · {lesson.documents.length} tài liệu
-                      </div>
+      {selectedSubject && (
+        <div style={styles.detailCard}>
+          <div style={styles.detailHeader}>
+            <h3 style={styles.detailTitle}>{selectedSubject.name}</h3>
+          </div>
 
-                      {lesson.videos.map((v) => {
-                        const vStatus = videoRagStatuses[v.id] || v.rag_status || "pending";
-                        const vProgress = videoRagProgress[v.id];
-                        return (
-                          <div key={v.id}>
-                            <div style={styles.docRow}>
-                              🎥 {v.original_filename}
-                              {statusBadge(vStatus)}
-                              <button style={styles.smallBtn} onClick={() => processVideo(v.id)}>
-                                {vStatus === "ready" ? "Xử lý lại" : "Xử lý AI"}
-                              </button>
-                            </div>
-                            {vStatus === "processing" && vProgress && (
-                              <div style={styles.progressWrap}>
-                                <div style={styles.progressBarBg}>
-                                  <div style={{ ...styles.progressBarFill, width: `${vProgress.percent}%` }} />
-                                </div>
-                                <div style={styles.progressText}>
-                                  {vProgress.percent}% ({vProgress.current_time}/{vProgress.total_time}) ·
-                                  {" "}còn {formatEta(vProgress.eta_seconds)}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                      {lesson.documents.map((doc) => {
-                        const status = ragStatuses[doc.id] || doc.rag_status || "pending";
-                        const progress = ragProgress[doc.id];
-                        return (
-                          <div key={doc.id}>
-                            <div style={styles.docRow}>
-                              📄 {doc.original_filename}
-                              {statusBadge(status)}
-                              <button
-                                style={styles.smallBtn}
-                                onClick={() => processDocument(doc.id)}
-                              >
-                                {status === "ready" ? "Xử lý lại" : status === "processing" ? "Xử lý lại từ đầu" : "Xử lý AI"}
-                              </button>
-                            </div>
-                            {status === "processing" && progress && (
-                              <div style={styles.progressWrap}>
-                                <div style={styles.progressBarBg}>
-                                  <div style={{ ...styles.progressBarFill, width: `${progress.percent}%` }} />
-                                </div>
-                                <div style={styles.progressText}>
-                                  {progress.percent}% (trang {progress.current_page}/{progress.total_pages}) ·
-                                  {" "}còn {formatEta(progress.eta_seconds)}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <label style={styles.uploadLabel}>
-                          + Video
-                          <input
-                            type="file"
-                            accept=".mp4,.mkv,.avi,.mov"
-                            hidden
-                            onChange={(e) =>
-                              uploadFile(lesson.id, e.target.files[0], "video")
-                            }
-                          />
-                        </label>
-                        <label style={styles.uploadLabel}>
-                          + PDF
-                          <input
-                            type="file"
-                            accept=".pdf"
-                            hidden
-                            onChange={(e) =>
-                              uploadFile(lesson.id, e.target.files[0], "pdf")
-                            }
-                          />
-                        </label>
-                        <label style={styles.uploadLabel}>
-                          + Đề thi
-                          <input
-                            type="file"
-                            accept=".pdf"
-                            hidden
-                            onChange={(e) =>
-                              uploadFile(lesson.id, e.target.files[0], "exam")
-                            }
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  ))}
-
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <input
-                      placeholder="Tên bài học mới"
-                      value={newLessonTitle[chapter.id] || ""}
-                      onChange={(e) =>
-                        setNewLessonTitle({
-                          ...newLessonTitle,
-                          [chapter.id]: e.target.value,
-                        })
-                      }
-                      style={styles.input}
-                    />
-                    <button onClick={() => addLesson(chapter.id)} style={styles.btn}>
-                      + Thêm bài
-                    </button>
-                  </div>
+          {selectedSubject.chapters.map((chapter) => {
+            const isOpen = expandedChapter === chapter.id;
+            return (
+              <div key={chapter.id} style={styles.chapterCard}>
+                <div
+                  style={styles.chapterHeader}
+                  onClick={() => setExpandedChapter(isOpen ? null : chapter.id)}
+                >
+                  <span style={{ ...styles.chevron, transform: isOpen ? "rotate(90deg)" : "none" }}>
+                    ›
+                  </span>
+                  <span style={styles.chapterName}>{chapter.name}</span>
+                  <span style={styles.chapterCount}>{chapter.lessons.length} bài</span>
                 </div>
-              )}
-            </div>
-          ))}
 
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                {isOpen && (
+                  <div style={styles.lessonList}>
+                    {chapter.lessons.map((lesson) => (
+                      <div key={lesson.id} style={styles.lessonCard}>
+                        <div style={styles.lessonHeader}>
+                          <span style={styles.lessonTitle}>{lesson.title}</span>
+                          <span style={styles.lessonMeta}>
+                            {lesson.videos.length} video · {lesson.documents.length} tài liệu
+                          </span>
+                        </div>
+
+                        {lesson.videos.map((v) => {
+                          const vStatus = videoRagStatuses[v.id] || v.rag_status || "pending";
+                          const vProgress = videoRagProgress[v.id];
+                          return (
+                            <div key={v.id} style={styles.fileBlock}>
+                              <div style={styles.fileRow}>
+                                <span style={styles.fileName}>🎥 {v.original_filename}</span>
+                                <StatusBadge status={vStatus} />
+                                <button style={styles.processBtn} onClick={() => processVideo(v.id)}>
+                                  {vStatus === "ready" ? "Xử lý lại" : "Xử lý AI"}
+                                </button>
+                              </div>
+                              {vStatus === "processing" && vProgress && (
+                                <div style={styles.progressWrap}>
+                                  <div style={styles.progressBarBg}>
+                                    <div
+                                      style={{
+                                        ...styles.progressBarFill,
+                                        width: `${vProgress.percent}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <div style={styles.progressText}>
+                                    {vProgress.percent}% ({vProgress.current_time}/{vProgress.total_time}) ·
+                                    còn {formatEta(vProgress.eta_seconds)}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {lesson.documents.map((doc) => {
+                          const status = ragStatuses[doc.id] || doc.rag_status || "pending";
+                          const progress = ragProgress[doc.id];
+                          return (
+                            <div key={doc.id} style={styles.fileBlock}>
+                              <div style={styles.fileRow}>
+                                <span style={styles.fileName}>📄 {doc.original_filename}</span>
+                                <StatusBadge status={status} />
+                                <button
+                                  style={styles.processBtn}
+                                  onClick={() => processDocument(doc.id)}
+                                >
+                                  {status === "ready"
+                                    ? "Xử lý lại"
+                                    : status === "processing"
+                                    ? "Xử lý lại từ đầu"
+                                    : "Xử lý AI"}
+                                </button>
+                              </div>
+                              {status === "processing" && progress && (
+                                <div style={styles.progressWrap}>
+                                  <div style={styles.progressBarBg}>
+                                    <div
+                                      style={{
+                                        ...styles.progressBarFill,
+                                        width: `${progress.percent}%`,
+                                      }}
+                                    />
+                                  </div>
+                                  <div style={styles.progressText}>
+                                    {progress.percent}% (trang {progress.current_page}/
+                                    {progress.total_pages}) · còn {formatEta(progress.eta_seconds)}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        <div style={styles.uploadRow}>
+                          <label style={styles.uploadLabel}>
+                            + Video
+                            <input
+                              type="file"
+                              accept=".mp4,.mkv,.avi,.mov"
+                              hidden
+                              onChange={(e) => uploadFile(lesson.id, e.target.files[0], "video")}
+                            />
+                          </label>
+                          <label style={styles.uploadLabel}>
+                            + PDF
+                            <input
+                              type="file"
+                              accept=".pdf"
+                              hidden
+                              onChange={(e) => uploadFile(lesson.id, e.target.files[0], "pdf")}
+                            />
+                          </label>
+                          <label style={styles.uploadLabel}>
+                            + Đề thi
+                            <input
+                              type="file"
+                              accept=".pdf"
+                              hidden
+                              onChange={(e) => uploadFile(lesson.id, e.target.files[0], "exam")}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div style={styles.inlineAddRow}>
+                      <input
+                        placeholder="Tên bài học mới"
+                        value={newLessonTitle[chapter.id] || ""}
+                        onChange={(e) =>
+                          setNewLessonTitle({ ...newLessonTitle, [chapter.id]: e.target.value })
+                        }
+                        onKeyDown={(e) => e.key === "Enter" && addLesson(chapter.id)}
+                        style={styles.inputSmall}
+                      />
+                      <button onClick={() => addLesson(chapter.id)} style={styles.secondaryBtn}>
+                        + Thêm bài
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          <div style={styles.inlineAddRow}>
             <input
               placeholder="Tên chương mới"
-              value={newChapterName[subject.id] || ""}
+              value={newChapterName[selectedSubject.id] || ""}
               onChange={(e) =>
-                setNewChapterName({ ...newChapterName, [subject.id]: e.target.value })
+                setNewChapterName({ ...newChapterName, [selectedSubject.id]: e.target.value })
               }
-              style={styles.input}
+              onKeyDown={(e) => e.key === "Enter" && addChapter(selectedSubject.id)}
+              style={styles.inputSmall}
             />
-            <button onClick={() => addChapter(subject.id)} style={styles.btn}>
+            <button onClick={() => addChapter(selectedSubject.id)} style={styles.primaryBtn}>
               + Thêm chương
             </button>
           </div>
         </div>
-      ))}
+      )}
     </div>
   );
 }
 
 const styles = {
-  input: { padding: "9px 12px", border: "1px solid #cbd5e0", borderRadius: 8, flex: 1, fontSize: 14 },
-  btn: {
-    padding: "9px 16px",
-    background: "var(--color-primary)",
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 500,
+  page: {
+    padding: "28px 32px 48px",
+    maxWidth: 1040,
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    color: "#1e2433",
   },
-  subjectCard: {
-    border: "1px solid var(--color-border)",
-    borderRadius: "var(--radius)",
-    boxShadow: "var(--shadow-sm)",
-    padding: 18,
-    marginBottom: 16,
+  loading: { padding: 24, color: "#8892a6" },
+  header: { marginBottom: 20 },
+  eyebrow: { fontSize: 13, color: "#8892a6", marginBottom: 4 },
+  title: { fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" },
+
+  subjectGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: 14,
+    marginBottom: 20,
+  },
+  subjectBox: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 10,
     background: "#fff",
+    border: "2px solid #eceef2",
+    borderRadius: 16,
+    padding: "18px 20px",
+    cursor: "pointer",
+    textAlign: "left",
+    transition: "box-shadow 0.15s ease, border-color 0.15s ease",
+    font: "inherit",
+    color: "inherit",
   },
+  subjectBoxIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 19,
+  },
+  subjectBoxName: { fontSize: 17, fontWeight: 700 },
+  subjectBoxMeta: { fontSize: 12.5, color: "#8892a6", fontWeight: 500 },
+
+  hintBox: {
+    textAlign: "center",
+    padding: "40px 24px",
+    background: "#fff",
+    border: "1px dashed #dde1e8",
+    borderRadius: 14,
+    color: "#8892a6",
+    fontSize: 14,
+  },
+
+  detailCard: {
+    background: "#fff",
+    border: "1px solid #eceef2",
+    borderRadius: 16,
+    padding: 22,
+    boxShadow: "0 1px 2px rgba(30,36,51,0.04)",
+  },
+  detailHeader: { marginBottom: 14 },
+  detailTitle: { fontSize: 18, fontWeight: 700, margin: 0 },
+
   chapterCard: {
-    background: "var(--color-bg)",
-    borderRadius: 8,
-    padding: 12,
+    background: "#f8f9fb",
+    borderRadius: 12,
+    padding: "12px 14px",
     marginTop: 10,
-    border: "1px solid transparent",
   },
+  chapterHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    cursor: "pointer",
+    userSelect: "none",
+  },
+  chevron: {
+    display: "inline-block",
+    fontSize: 18,
+    color: "#8892a6",
+    transition: "transform 0.15s ease",
+    width: 12,
+  },
+  chapterName: { fontWeight: 600, fontSize: 14.5, flex: 1 },
+  chapterCount: { fontSize: 12, color: "#8892a6" },
+
+  lessonList: { marginTop: 10, display: "flex", flexDirection: "column", gap: 8 },
   lessonCard: {
     background: "#fff",
-    border: "1px solid var(--color-border)",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
+    border: "1px solid #eceef2",
+    borderRadius: 10,
+    padding: 14,
   },
-  uploadLabel: {
-    fontSize: 12,
-    padding: "4px 10px",
-    background: "#edf2f7",
-    borderRadius: 4,
-    cursor: "pointer",
-  },
-  docRow: {
+  lessonHeader: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 },
+  lessonTitle: { fontWeight: 600, fontSize: 14 },
+  lessonMeta: { fontSize: 12, color: "#8892a6" },
+
+  fileBlock: { marginBottom: 6 },
+  fileRow: {
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
+    gap: 10,
     fontSize: 13,
-    padding: "4px 0",
+    padding: "6px 0",
   },
-  smallBtn: {
-    fontSize: 11,
-    padding: "3px 8px",
-    background: "#38a169",
+  fileName: { flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  badge: {
+    fontSize: 11.5,
+    padding: "3px 10px",
+    borderRadius: 20,
+    fontWeight: 600,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    whiteSpace: "nowrap",
+  },
+  badgeDot: { width: 6, height: 6, borderRadius: "50%", display: "inline-block" },
+  processBtn: {
+    fontSize: 11.5,
+    padding: "5px 12px",
+    background: "#1e2433",
     color: "#fff",
     border: "none",
-    borderRadius: 4,
+    borderRadius: 6,
     cursor: "pointer",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
   },
-  progressWrap: {
-    margin: "4px 0 8px",
-  },
+
+  progressWrap: { margin: "2px 0 8px" },
   progressBarBg: {
     width: "100%",
     height: 6,
-    background: "#e2e8f0",
+    background: "#eceef2",
     borderRadius: 3,
     overflow: "hidden",
   },
   progressBarFill: {
     height: "100%",
-    background: "#3182ce",
+    background: "linear-gradient(90deg, #0d9488, #14b8a6)",
     transition: "width 0.3s ease",
   },
-  progressText: {
-    fontSize: 11,
-    color: "#718096",
-    marginTop: 3,
+  progressText: { fontSize: 11, color: "#8892a6", marginTop: 3 },
+
+  uploadRow: { display: "flex", gap: 8, marginTop: 8 },
+  uploadLabel: {
+    fontSize: 12,
+    padding: "6px 12px",
+    background: "#f1f2f6",
+    color: "#4b5566",
+    borderRadius: 8,
+    cursor: "pointer",
+    fontWeight: 600,
+  },
+
+  inlineAddRow: { display: "flex", gap: 8, marginTop: 12 },
+  inputSmall: {
+    flex: 1,
+    padding: "9px 12px",
+    border: "1px solid #dde1e8",
+    borderRadius: 8,
+    fontSize: 13.5,
+    outline: "none",
+  },
+  primaryBtn: {
+    padding: "0 18px",
+    background: "#4f46e5",
+    color: "#fff",
+    border: "none",
+    borderRadius: 10,
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: 14,
+  },
+  secondaryBtn: {
+    padding: "0 16px",
+    background: "#0d9488",
+    color: "#fff",
+    border: "none",
+    borderRadius: 8,
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: 13,
   },
 };
