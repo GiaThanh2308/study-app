@@ -9,7 +9,7 @@ from app.models import models, schemas
 router = APIRouter()
 
 ALLOWED_VIDEO = {".mp4", ".mkv", ".avi", ".mov"}
-ALLOWED_DOC = {".pdf"}
+ALLOWED_DOC = {".pdf", ".docx"}
 ALLOWED_SUB = {".srt", ".vtt", ".txt"}
 
 

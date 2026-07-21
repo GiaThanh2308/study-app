@@ -42,6 +42,9 @@ def transcribe_video(video_path: str, progress_callback=None) -> list[dict]:
     segments, info = model.transcribe(video_path, language="vi", beam_size=5)
 
     total_duration = info.duration
+    if progress_callback:
+        progress_callback(0, total_duration)  # báo tổng thời lượng ngay, trước khi xử lý đoạn nào
+
     results = []
     for seg in segments:
         results.append({

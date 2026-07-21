@@ -1,13 +1,15 @@
 import os
 import time
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+import fitz  # PyMuPDF
 
 from app.core.database import get_db, DATA_DIR, SessionLocal
 from app.models import models
 from app.ai.rag.chunking import chunk_pdf
+from app.ai.rag.docx_reader import chunk_docx
 from app.ai.rag.embeddings import get_embeddings_batch, get_embedding
 from app.ai.rag.vector_store import add_chunks, query as vector_query, delete_document
 from app.ai.ollama_client import chat_stream
@@ -40,7 +42,15 @@ async def _process_document_task(document_id: int):
             _progress_tracker[document_id]["total"] = total_pages
 
         full_path = os.path.join(DATA_DIR, doc.file_path)
-        chunks = await chunk_pdf(full_path, describe_images=True, progress_callback=on_page_progress)
+        ext = os.path.splitext(doc.file_path)[1].lower()
+
+        if ext == ".docx":
+            chunks = chunk_docx(full_path, progress_callback=on_page_progress)
+            content_type = "docx"
+        else:
+            chunks = await chunk_pdf(full_path, describe_images=True, progress_callback=on_page_progress)
+            content_type = "pdf"
+
         if not chunks:
             doc.rag_status = "error"
             db.commit()
@@ -48,7 +58,7 @@ async def _process_document_task(document_id: int):
 
         texts = [c["text"] for c in chunks]
         embeddings = await get_embeddings_batch(texts)
-        add_chunks(document_id, doc.original_filename or "tài liệu", chunks, embeddings)
+        add_chunks(document_id, doc.original_filename or "tài liệu", chunks, embeddings, content_type=content_type)
 
         doc.rag_status = "ready"
         doc.page_count = max(c["page"] for c in chunks)
@@ -66,13 +76,41 @@ async def _process_document_task(document_id: int):
         db.close()
 
 
+@router.get("/rag/page-image")
+def get_page_image(document_id: int, page: int, db: Session = Depends(get_db)):
+    """
+    Chụp lại đúng 1 trang PDF thành ảnh PNG — dùng để hiển thị gọn trong khung chat
+    thay vì nhúng cả trình xem PDF đầy đủ (thanh công cụ, thumbnail...) chỉ để xem 1 trang.
+    Chỉ áp dụng cho PDF — DOCX không có khái niệm trang thật nên không cần endpoint này.
+    """
+    doc = db.query(models.Document).get(document_id)
+    if not doc:
+        raise HTTPException(404, "Tài liệu không tồn tại")
+
+    full_path = os.path.join(DATA_DIR, doc.file_path)
+    pdf = fitz.open(full_path)
+    try:
+        page_index = page - 1  # tham số "page" đếm từ 1, fitz đếm từ 0
+        if page_index < 0 or page_index >= len(pdf):
+            raise HTTPException(404, f"Trang {page} không tồn tại trong tài liệu này")
+
+        pix = pdf[page_index].get_pixmap(matrix=fitz.Matrix(2, 2))  # zoom x2 cho nét hơn
+        img_bytes = pix.tobytes("png")
+    finally:
+        pdf.close()
+
+    return Response(content=img_bytes, media_type="image/png")
+
+
 @router.post("/rag/process/{document_id}")
 def process_document(document_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     doc = db.query(models.Document).get(document_id)
     if not doc:
         raise HTTPException(404, "Tài liệu không tồn tại")
-    if doc.doc_type != "pdf" and doc.doc_type != "exam":
-        raise HTTPException(400, "Chỉ hỗ trợ xử lý RAG cho file PDF")
+
+    ext = os.path.splitext(doc.file_path)[1].lower()
+    if ext not in (".pdf", ".docx"):
+        raise HTTPException(400, "Chỉ hỗ trợ xử lý RAG cho file PDF hoặc DOCX")
 
     background_tasks.add_task(_process_document_task, document_id)
     doc.rag_status = "processing"
@@ -141,6 +179,8 @@ async def rag_chat(payload: RagChatRequest, db: Session = Depends(get_db)):
                 from app.ai.video.whisper_transcribe import format_timestamp
                 ts = format_timestamp(h["start_time"])
                 context_parts.append(f"[Nguồn: video {h['source_name']}, phút {ts}]\n{h['text']}")
+            elif h.get("content_type") == "docx":
+                context_parts.append(f"[Nguồn: {h['source_name']}, phần {h['page']}]\n{h['text']}")
             else:
                 context_parts.append(f"[Nguồn: {h['source_name']}, trang {h['page']}]\n{h['text']}")
         context_text = "\n\n".join(context_parts)
@@ -169,6 +209,15 @@ async def rag_chat(payload: RagChatRequest, db: Session = Depends(get_db)):
                     "start_seconds": h["start_time"],
                     "video_id": h["video_id"],
                     "file_path": videos_map.get(h["video_id"]),
+                })
+            elif h.get("content_type") == "docx":
+                sources.append({
+                    "type": "docx",
+                    "source_name": h["source_name"],
+                    "part": h["page"],  # số thứ tự "Phần", không phải trang thật
+                    "document_id": h["document_id"],
+                    "file_path": docs_map.get(h["document_id"]),
+                    "snippet": h["text"][:500],  # DOCX không xem trước được bằng ảnh, hiện thẳng đoạn text
                 })
             else:
                 sources.append({
