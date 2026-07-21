@@ -189,6 +189,8 @@ export default function Chat() {
                           const label =
                             s.type === "video"
                               ? `🎥 ${s.source_name}, phút ${s.timestamp}`
+                              : s.type === "docx"
+                              ? `📝 ${s.source_name}, phần ${s.part}`
                               : `📄 ${s.source_name}, trang ${s.page}`;
                           return (
                             <button
@@ -198,6 +200,8 @@ export default function Chat() {
                               title={
                                 s.type === "video"
                                   ? "Bấm để xem video từ đúng thời điểm"
+                                  : s.type === "docx"
+                                  ? "Bấm để xem đoạn văn bản"
                                   : "Bấm để xem trang PDF"
                               }
                             >
@@ -209,24 +213,36 @@ export default function Chat() {
 
                       {m.sources.map((s, si) => {
                         const key = `${i}-${si}`;
-                        if (expandedSource !== key || !s.file_path) return null;
+                        if (expandedSource !== key) return null;
 
                         if (s.type === "video") {
-                          const url = `http://127.0.0.1:8000/data/${s.file_path}#t=${s.start_seconds}`;
+                          const url = `http://127.0.0.1:8000/data/${s.file_path}`;
                           return (
                             <div key={`preview-${si}`} style={styles.preview}>
-                              <video src={url} controls style={{ width: "100%", display: "block" }} />
+                              <video
+                                src={url}
+                                controls
+                                style={{ width: "100%", display: "block" }}
+                                onLoadedMetadata={(e) => {
+                                  e.target.currentTime = s.start_seconds;
+                                }}
+                              />
                             </div>
                           );
                         }
-                        const url = `http://127.0.0.1:8000/data/${s.file_path}#page=${s.page}`;
+                        if (s.type === "docx") {
+                          // DOCX không có "trang" thật để render ảnh xem trước — hiện thẳng đoạn văn bản đã tìm được
+                          return (
+                            <div key={`preview-${si}`} style={{ ...styles.preview, padding: 14, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                              {s.snippet}
+                            </div>
+                          );
+                        }
+                        if (!s.document_id) return null;
+                        const imgUrl = `http://127.0.0.1:8000/api/rag/page-image?document_id=${s.document_id}&page=${s.page}`;
                         return (
                           <div key={`preview-${si}`} style={styles.preview}>
-                            <iframe
-                              src={url}
-                              title={`${s.source_name} trang ${s.page}`}
-                              style={styles.pdfIframe}
-                            />
+                            <img src={imgUrl} alt={`${s.source_name} trang ${s.page}`} style={{ width: "100%", display: "block" }} />
                           </div>
                         );
                       })}

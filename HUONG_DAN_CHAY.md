@@ -309,3 +309,27 @@ Phần "điểm yếu nhất" chỉ hoạt động sau khi bạn đã dùng "AI 
 ## Logic có thể tự kiểm tra
 - `_estimate_study_hours`: sort mọi timestamp, gom nhóm nếu khoảng cách giữa 2 hoạt động liên tiếp ≤ 10 phút, mỗi phiên tính tối thiểu 1 phút (tránh trường hợp 1 hoạt động đơn lẻ tính ra 0 giờ)
 - Chỉ tính chủ đề có ≥ 2 lần làm vào "điểm yếu" — tránh kết luận vội vàng chỉ từ 1 câu sai
+
+---
+
+# Bổ sung — Quét file DOCX (Word)
+
+## Cài thêm thư viện
+```
+cd D:\studyapp\backend
+venv\Scripts\activate
+pip install -r requirements.txt
+```
+(sẽ cài thêm `python-docx`)
+
+## Không cần xóa database
+Tính năng này không thêm cột/bảng mới, chỉ thêm code xử lý — chỉ cần khởi động lại backend + frontend.
+
+## Cách dùng
+Y hệt PDF — vào "Môn học", nút "+ PDF/DOCX" giờ nhận cả 2 định dạng, bấm "Xử lý AI" như bình thường.
+
+## Khác biệt quan trọng so với PDF
+- **Không có "số trang" thật** — Word không lưu cố định số trang trong file (số trang chỉ hiện lúc in/xem), nên trích dẫn DOCX ghi **"Phần X"** (theo thứ tự nội dung xử lý), không phải "Trang X"
+- **Xem trước khi trích dẫn**: vì không tính được "trang" để chụp ảnh như PDF, khi bấm vào nguồn DOCX sẽ hiện **thẳng đoạn văn bản** tìm được (dạng chữ), không phải ảnh
+- **Chưa xử lý hình ảnh/đồ thị trong DOCX** — khác với PDF đã có bước mô tả hình bằng model vision, DOCX hiện chỉ đọc chữ, bỏ qua hình ảnh nhúng trong file
+- Hoạt động bình thường với "AI tạo câu hỏi", "Đề thi thử", "AI Gia sư" — các tính năng này không phân biệt PDF/DOCX, chỉ cần file đã "Xử lý AI" xong

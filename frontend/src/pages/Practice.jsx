@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import api from "../api";
 
-const TABS = ["Làm bài", "Đề thi thử", "AI Gia sư", "Thêm câu hỏi", "AI tạo câu hỏi", "Flashcard"];
+const TABS = ["Tạo đề thi", "AI Gia sư"];
 
 export default function Practice() {
-  const [tab, setTab] = useState("Làm bài");
+  const [tab, setTab] = useState(TABS[0]);
   const [subjects, setSubjects] = useState([]);
 
   useEffect(() => {
@@ -14,146 +14,67 @@ export default function Practice() {
   return (
     <div className="page">
       <h2>Luyện tập</h2>
+      <p style={{ color: "var(--color-text-muted)" }}>
+        Tạo đề thi thử bằng AI dựa trên tài liệu bạn đã upload, hoặc luyện tập
+        theo từng chủ đề với AI Gia sư.
+      </p>
 
       <div style={styles.tabBar}>
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            style={{ ...styles.tabBtn, ...(tab === t ? styles.tabBtnActive : {}) }}
+            style={{
+              ...styles.tabBtn,
+              ...(tab === t ? styles.tabBtnActive : {}),
+            }}
           >
             {t}
           </button>
         ))}
       </div>
 
-      {tab === "Làm bài" && <QuizTab subjects={subjects} />}
-      {tab === "Đề thi thử" && <ExamTab subjects={subjects} />}
-      {tab === "AI Gia sư" && <TutorTab subjects={subjects} />}
-      {tab === "Thêm câu hỏi" && <AddQuestionTab subjects={subjects} />}
-      {tab === "AI tạo câu hỏi" && <AiGenerateTab subjects={subjects} />}
-      {tab === "Flashcard" && <FlashcardTab subjects={subjects} />}
-    </div>
-  );
-}
-
-// ---------------- Làm bài (Quiz) ----------------
-function QuizTab({ subjects }) {
-  const [subjectId, setSubjectId] = useState("");
-  const [questions, setQuestions] = useState([]);
-  const [current, setCurrent] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [result, setResult] = useState(null); // { is_correct, correct_answer_id, explanation }
-  const [score, setScore] = useState({ correct: 0, total: 0 });
-
-  const startQuiz = async () => {
-    if (!subjectId) return;
-    const res = await api.get(`/practice/quiz?subject_id=${subjectId}&count=10`);
-    setQuestions(res.data);
-    setCurrent(0);
-    setResult(null);
-    setSelectedAnswer(null);
-    setScore({ correct: 0, total: 0 });
-  };
-
-  const submit = async () => {
-    if (selectedAnswer === null) return;
-    const q = questions[current];
-    const res = await api.post("/practice/submit", { question_id: q.id, answer_id: selectedAnswer });
-    setResult(res.data);
-    setScore((s) => ({ correct: s.correct + (res.data.is_correct ? 1 : 0), total: s.total + 1 }));
-  };
-
-  const nextQuestion = () => {
-    setCurrent((c) => c + 1);
-    setSelectedAnswer(null);
-    setResult(null);
-  };
-
-  if (questions.length === 0) {
-    return (
-      <div>
-        <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={styles.select}>
-          <option value="">-- Chọn môn học --</option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-        <button onClick={startQuiz} style={styles.btn}>Bắt đầu làm bài (10 câu ngẫu nhiên)</button>
-        <p style={{ color: "#718096", fontSize: 13, marginTop: 8 }}>
-          Cần có sẵn câu hỏi trong môn học này (nhập tay hoặc AI tạo trước) mới làm được.
-        </p>
-      </div>
-    );
-  }
-
-  if (current >= questions.length) {
-    return (
-      <div style={styles.resultBox}>
-        <h3>Hoàn thành!</h3>
-        <p>Đúng {score.correct}/{score.total} câu ({Math.round((score.correct / score.total) * 100)}%)</p>
-        <button style={styles.btn} onClick={() => setQuestions([])}>Làm bài khác</button>
-      </div>
-    );
-  }
-
-  const q = questions[current];
-  return (
-    <div>
-      <p style={{ color: "#718096" }}>Câu {current + 1}/{questions.length}</p>
-      <div style={styles.questionBox}>
-        <p style={{ fontWeight: 600 }}>{q.content}</p>
-        {q.answers.map((a) => {
-          let bg = "#fff";
-          if (result) {
-            if (a.id === result.correct_answer_id) bg = "#c6f6d5";
-            else if (a.id === selectedAnswer) bg = "#fed7d7";
-          } else if (a.id === selectedAnswer) {
-            bg = "#ebf8ff";
-          }
-          return (
-            <div
-              key={a.id}
-              style={{ ...styles.answerRow, background: bg }}
-              onClick={() => !result && setSelectedAnswer(a.id)}
-            >
-              {a.content}
-            </div>
-          );
-        })}
-
-        {result && (
-          <div style={styles.explanationBox}>
-            {result.is_correct ? "✅ Chính xác!" : "❌ Sai rồi."}
-            {result.explanation && <p style={{ marginTop: 6 }}>{result.explanation}</p>}
-          </div>
-        )}
-
-        {!result ? (
-          <button style={styles.btn} onClick={submit} disabled={selectedAnswer === null}>Nộp đáp án</button>
-        ) : (
-          <button style={styles.btn} onClick={nextQuestion}>Câu tiếp theo</button>
-        )}
+      <div style={styles.tabContent}>
+        {tab === "Tạo đề thi" && <ExamTab subjects={subjects} />}
+        {tab === "AI Gia sư" && <TutorTab subjects={subjects} />}
       </div>
     </div>
   );
 }
 
-// ---------------- Đề thi thử (chọn ngẫu nhiên nhiều file đề, gộp thành 1 đề) ----------------
+// ============================================================
+// TẠO ĐỀ THI — quét toàn bộ tài liệu môn học, AI soạn đề đúng
+// cấu trúc THPT (3 phần), chấm điểm thật khi nộp bài.
+// ============================================================
 function ExamTab({ subjects }) {
   const [subjectId, setSubjectId] = useState("");
-  const [numFiles, setNumFiles] = useState(3);
-  const [perFile, setPerFile] = useState(3);
+  const [part1Count, setPart1Count] = useState(12);
+  const [part2Count, setPart2Count] = useState(4);
+  const [part3Count, setPart3Count] = useState(6);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [examInfo, setExamInfo] = useState(null); // { source_files, total_questions }
-  const [questions, setQuestions] = useState([]);
-  const [current, setCurrent] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [result, setResult] = useState(null);
-  const [score, setScore] = useState({ correct: 0, total: 0 });
 
-  const generateExam = async () => {
+  const [examList, setExamList] = useState([]);
+  const [exam, setExam] = useState(null);
+  const [mcqAnswers, setMcqAnswers] = useState({});
+  const [tfAnswers, setTfAnswers] = useState({});
+  const [shortAnswers, setShortAnswers] = useState({});
+  const [result, setResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setExam(null);
+    setResult(null);
+    if (subjectId) loadExamList();
+    else setExamList([]);
+  }, [subjectId]);
+
+  const loadExamList = async () => {
+    const res = await api.get(`/practice/exams?subject_id=${subjectId}`);
+    setExamList(res.data);
+  };
+
+  const generate = async () => {
     if (!subjectId) {
       setError("Chọn môn học trước.");
       return;
@@ -161,132 +82,476 @@ function ExamTab({ subjects }) {
     setError("");
     setLoading(true);
     try {
-      const res = await api.post("/practice/generate-exam", {
+      const genRes = await api.post("/practice/exams/generate", {
         subject_id: Number(subjectId),
-        num_files: numFiles,
-        questions_per_file: perFile,
+        part1_count: Number(part1Count),
+        part2_count: Number(part2Count),
+        part3_count: Number(part3Count),
       });
-      setExamInfo(res.data);
-
-      const idsParam = res.data.question_ids.join(",");
-      const qRes = await api.get(`/practice/questions/by-ids?ids=${idsParam}`);
-      setQuestions(qRes.data);
-      setCurrent(0);
-      setResult(null);
-      setSelectedAnswer(null);
-      setScore({ correct: 0, total: 0 });
+      await openExam(genRes.data.id);
+      loadExamList();
     } catch (e) {
-      setError(e.response?.data?.detail || "Không tạo được đề thi, thử lại.");
+      setError(e.response?.data?.detail || "Không tạo được đề, thử lại.");
     } finally {
       setLoading(false);
     }
   };
 
-  const submit = async () => {
-    if (selectedAnswer === null) return;
-    const q = questions[current];
-    const res = await api.post("/practice/submit", { question_id: q.id, answer_id: selectedAnswer });
-    setResult(res.data);
-    setScore((s) => ({ correct: s.correct + (res.data.is_correct ? 1 : 0), total: s.total + 1 }));
-  };
-
-  const nextQuestion = () => {
-    setCurrent((c) => c + 1);
-    setSelectedAnswer(null);
+  const openExam = async (examId) => {
+    const res = await api.get(`/practice/exams/${examId}`);
+    setExam(res.data);
+    setMcqAnswers({});
+    setTfAnswers({});
+    setShortAnswers({});
     setResult(null);
   };
 
-  if (questions.length === 0) {
-    return (
-      <div style={{ maxWidth: 500 }}>
-        <p style={{ color: "#718096", fontSize: 13 }}>
-          AI sẽ chọn ngẫu nhiên vài file đề thi (PDF loại "đề thi", đã xử lý AI) trong môn học,
-          lấy vài câu từ mỗi file, gộp thành 1 đề hoàn chỉnh để bạn làm thử.
-        </p>
+  const deleteExam = async (examId, e) => {
+    e.stopPropagation();
+    await api.delete(`/practice/exams/${examId}`);
+    loadExamList();
+  };
 
-        <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={styles.select}>
+  const toggleTf = (questionId, statementId, value) => {
+    setTfAnswers((prev) => ({
+      ...prev,
+      [questionId]: { ...(prev[questionId] || {}), [statementId]: value },
+    }));
+  };
+
+  const submitExam = async () => {
+    setSubmitting(true);
+    try {
+      const res = await api.post(`/practice/exams/${exam.id}/submit`, {
+        mcq_answers: mcqAnswers,
+        truefalse_answers: tfAnswers,
+        short_answers: shortAnswers,
+      });
+      setResult(res.data);
+      loadExamList();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const detailFor = (qid) => result?.details.find((d) => d.question_id === qid);
+
+  // ---------- Màn hình cấu hình / danh sách đề đã tạo ----------
+  if (!exam) {
+    return (
+      <div style={{ maxWidth: 640 }}>
+        <select
+          value={subjectId}
+          onChange={(e) => setSubjectId(e.target.value)}
+          style={styles.select}
+        >
           <option value="">-- Chọn môn học --</option>
           {subjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
           ))}
         </select>
 
-        <div style={{ marginBottom: 10 }}>
-          Số file đề lấy ngẫu nhiên:{" "}
-          <input type="number" min={1} max={10} value={numFiles} onChange={(e) => setNumFiles(Number(e.target.value))} style={{ ...styles.input, width: 60 }} />
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          Số câu mỗi file:{" "}
-          <input type="number" min={1} max={10} value={perFile} onChange={(e) => setPerFile(Number(e.target.value))} style={{ ...styles.input, width: 60 }} />
-        </div>
+        {subjectId && (
+          <>
+            <div style={styles.configCard}>
+              <h4 style={{ margin: "0 0 12px" }}>
+                Cấu trúc đề (chuẩn THPT Quốc Gia)
+              </h4>
+              <div style={styles.configRow}>
+                <ConfigField
+                  label="Phần I — Trắc nghiệm (0.25đ/câu, tổng 3đ)"
+                  value={part1Count}
+                  onChange={setPart1Count}
+                />
+                <ConfigField
+                  label="Phần II — Đúng/Sai 4 ý (tổng 4đ)"
+                  value={part2Count}
+                  onChange={setPart2Count}
+                />
+                <ConfigField
+                  label="Phần III — Trả lời ngắn (tổng 3đ)"
+                  value={part3Count}
+                  onChange={setPart3Count}
+                />
+              </div>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "var(--color-text-muted)",
+                  margin: "10px 0 0",
+                }}
+              >
+                AI sẽ quét toàn bộ tài liệu/video đã "Xử lý AI" của môn học này
+                để soạn đề — thang điểm tổng luôn là 10.
+              </p>
+              <button
+                style={{ ...styles.btn, marginTop: 14 }}
+                onClick={generate}
+                disabled={loading}
+              >
+                {loading
+                  ? "AI đang soạn đề... (có thể mất vài phút)"
+                  : "🪄 Tạo đề thi bằng AI"}
+              </button>
+              {error && (
+                <p style={{ color: "var(--color-danger)", marginTop: 8 }}>
+                  {error}
+                </p>
+              )}
+            </div>
 
-        <button style={styles.btn} onClick={generateExam} disabled={loading}>
-          {loading ? "Đang tạo đề... (có thể mất vài phút)" : "Tạo đề thi thử"}
-        </button>
-        {error && <p style={{ color: "#c53030" }}>{error}</p>}
-      </div>
-    );
-  }
-
-  if (current >= questions.length) {
-    return (
-      <div style={styles.resultBox}>
-        <h3>Hoàn thành đề thi!</h3>
-        <p>Đúng {score.correct}/{score.total} câu ({Math.round((score.correct / score.total) * 100)}%)</p>
-        {examInfo && (
-          <p style={{ fontSize: 12, color: "#718096" }}>
-            Đề lấy từ: {examInfo.source_files.join(", ")}
-          </p>
+            {examList.length > 0 && (
+              <div style={{ marginTop: 24 }}>
+                <h4 style={{ color: "var(--color-text-muted)" }}>
+                  Đề đã tạo trước đó
+                </h4>
+                {examList.map((e) => (
+                  <div
+                    key={e.id}
+                    style={styles.examListRow}
+                    onClick={() => openExam(e.id)}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{e.title}</div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "var(--color-text-muted)",
+                        }}
+                      >
+                        {e.total_questions} câu
+                      </div>
+                    </div>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 12 }}
+                    >
+                      {e.best_score != null && (
+                        <span
+                          style={{
+                            ...styles.scoreBadge,
+                            background: scoreColor(e.best_score).bg,
+                            color: scoreColor(e.best_score).fg,
+                          }}
+                        >
+                          {e.best_score.toFixed(2)}/10
+                        </span>
+                      )}
+                      <button
+                        style={styles.deleteBtn}
+                        onClick={(ev) => deleteExam(e.id, ev)}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
-        <button style={styles.btn} onClick={() => setQuestions([])}>Tạo đề khác</button>
       </div>
     );
   }
 
-  const q = questions[current];
-  return (
-    <div>
-      {examInfo && (
-        <p style={{ fontSize: 12, color: "#718096" }}>
-          Đề gồm {examInfo.total_questions} câu, lấy từ: {examInfo.source_files.join(", ")}
-        </p>
-      )}
-      <p style={{ color: "#718096" }}>Câu {current + 1}/{questions.length}</p>
-      <div style={styles.questionBox}>
-        <p style={{ fontWeight: 600 }}>{q.content}</p>
-        {q.answers.map((a) => {
-          let bg = "#fff";
-          if (result) {
-            if (a.id === result.correct_answer_id) bg = "#c6f6d5";
-            else if (a.id === selectedAnswer) bg = "#fed7d7";
-          } else if (a.id === selectedAnswer) {
-            bg = "#ebf8ff";
-          }
+  // ---------- Màn hình kết quả sau khi nộp ----------
+  if (result) {
+    const parts = [
+      { label: "Phần I — Trắc nghiệm", score: result.part1_score, max: 3 },
+      { label: "Phần II — Đúng/Sai", score: result.part2_score, max: 4 },
+      { label: "Phần III — Trả lời ngắn", score: result.part3_score, max: 3 },
+    ];
+    return (
+      <div>
+        <div style={styles.resultSummary}>
+          <div
+            style={{
+              fontSize: 42,
+              fontWeight: 800,
+              color: scoreColor(result.total_score).fg,
+            }}
+          >
+            {result.total_score.toFixed(2)}
+            <span style={{ fontSize: 20, color: "var(--color-text-muted)" }}>
+              /10
+            </span>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              gap: 20,
+              marginTop: 14,
+              flexWrap: "wrap",
+            }}
+          >
+            {parts.map((p) => (
+              <div key={p.label} style={styles.partScoreBox}>
+                <div style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+                  {p.label}
+                </div>
+                <div style={{ fontWeight: 700 }}>
+                  {p.score.toFixed(2)}/{p.max}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {[
+          "Phần I — Trắc nghiệm",
+          "Phần II — Đúng/Sai",
+          "Phần III — Trả lời ngắn",
+        ].map((title, idx) => {
+          const partNum = idx + 1;
+          const items = exam[`part${partNum}`];
+          if (!items.length) return null;
           return (
-            <div key={a.id} style={{ ...styles.answerRow, background: bg }} onClick={() => !result && setSelectedAnswer(a.id)}>
-              {a.content}
+            <div key={title} style={{ marginTop: 22 }}>
+              <h4>{title}</h4>
+              {items.map((q, i) => {
+                const d = detailFor(q.id);
+                return (
+                  <div key={q.id} style={styles.questionBox}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <p style={{ fontWeight: 600 }}>
+                        Câu {i + 1}. {q.content}
+                      </p>
+                      <span
+                        style={{
+                          ...styles.pointsBadge,
+                          color:
+                            d.earned_points > 0
+                              ? "var(--color-success)"
+                              : "var(--color-danger)",
+                        }}
+                      >
+                        {d.earned_points}/{d.max_points}đ
+                      </span>
+                    </div>
+                    <p
+                      style={{ fontSize: 13, color: "var(--color-text-muted)" }}
+                    >
+                      ✔ Đáp án đúng: {d.correct_display}
+                    </p>
+                    {d.explanation && (
+                      <p
+                        style={{
+                          fontSize: 13,
+                          background: "var(--color-bg)",
+                          padding: 8,
+                          borderRadius: 6,
+                        }}
+                      >
+                        {d.explanation}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           );
         })}
 
-        {result && (
-          <div style={styles.explanationBox}>
-            {result.is_correct ? "✅ Chính xác!" : "❌ Sai rồi."}
-            {result.explanation && <p style={{ marginTop: 6 }}>{result.explanation}</p>}
-          </div>
-        )}
+        <button
+          style={{ ...styles.btn, marginTop: 20 }}
+          onClick={() => setExam(null)}
+        >
+          ← Quay lại danh sách đề
+        </button>
+      </div>
+    );
+  }
 
-        {!result ? (
-          <button style={styles.btn} onClick={submit} disabled={selectedAnswer === null}>Nộp đáp án</button>
-        ) : (
-          <button style={styles.btn} onClick={nextQuestion}>Câu tiếp theo</button>
-        )}
+  // ---------- Màn hình làm bài ----------
+  const answeredCount =
+    Object.keys(mcqAnswers).length +
+    Object.keys(tfAnswers).length +
+    Object.keys(shortAnswers).filter((k) => shortAnswers[k]?.trim()).length;
+  const totalCount = exam.part1.length + exam.part2.length + exam.part3.length;
+
+  return (
+    <div>
+      <div style={styles.examHeader}>
+        <div>
+          <h3 style={{ margin: 0 }}>{exam.title}</h3>
+          {exam.source_files.length > 0 && (
+            <p
+              style={{
+                fontSize: 12,
+                color: "var(--color-text-muted)",
+                margin: "4px 0 0",
+              }}
+            >
+              Nguồn: {exam.source_files.join(", ")}
+            </p>
+          )}
+        </div>
+        <span style={{ fontSize: 13, color: "var(--color-text-muted)" }}>
+          {answeredCount}/{totalCount} câu đã trả lời
+        </span>
+      </div>
+
+      {exam.part1.length > 0 && (
+        <section style={{ marginTop: 20 }}>
+          <h4>Phần I — Trắc nghiệm nhiều lựa chọn</h4>
+          {exam.part1.map((q, i) => (
+            <div key={q.id} style={styles.questionBox}>
+              <p style={{ fontWeight: 600 }}>
+                Câu {i + 1}. {q.content}
+              </p>
+              {q.answers.map((a, ai) => (
+                <div
+                  key={a.id}
+                  style={{
+                    ...styles.answerRow,
+                    background:
+                      mcqAnswers[q.id] === a.id
+                        ? "var(--color-primary-light)"
+                        : "#fff",
+                  }}
+                  onClick={() =>
+                    setMcqAnswers((prev) => ({ ...prev, [q.id]: a.id }))
+                  }
+                >
+                  <b style={{ marginRight: 8 }}>
+                    {String.fromCharCode(65 + ai)}.
+                  </b>
+                  {a.content}
+                </div>
+              ))}
+            </div>
+          ))}
+        </section>
+      )}
+
+      {exam.part2.length > 0 && (
+        <section style={{ marginTop: 20 }}>
+          <h4>Phần II — Đúng / Sai</h4>
+          <p style={{ fontSize: 12, color: "var(--color-text-muted)" }}>
+            Mỗi ý a, b, c, d đúng hoặc sai độc lập nhau.
+          </p>
+          {exam.part2.map((q, i) => (
+            <div key={q.id} style={styles.questionBox}>
+              <p style={{ fontWeight: 600 }}>
+                Câu {i + 1}. {q.content}
+              </p>
+              {q.answers.map((a, ai) => {
+                const current = tfAnswers[q.id]?.[a.id];
+                return (
+                  <div key={a.id} style={styles.tfRow}>
+                    <span style={{ flex: 1 }}>
+                      {String.fromCharCode(97 + ai)}) {a.content}
+                    </span>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        style={{
+                          ...styles.tfBtn,
+                          ...(current === true ? styles.tfBtnActiveTrue : {}),
+                        }}
+                        onClick={() => toggleTf(q.id, a.id, true)}
+                      >
+                        Đúng
+                      </button>
+                      <button
+                        style={{
+                          ...styles.tfBtn,
+                          ...(current === false ? styles.tfBtnActiveFalse : {}),
+                        }}
+                        onClick={() => toggleTf(q.id, a.id, false)}
+                      >
+                        Sai
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </section>
+      )}
+
+      {exam.part3.length > 0 && (
+        <section style={{ marginTop: 20 }}>
+          <h4>Phần III — Trả lời ngắn</h4>
+          {exam.part3.map((q, i) => (
+            <div key={q.id} style={styles.questionBox}>
+              <p style={{ fontWeight: 600 }}>
+                Câu {i + 1}. {q.content}
+              </p>
+              <input
+                placeholder="Nhập đáp án..."
+                value={shortAnswers[q.id] || ""}
+                onChange={(e) =>
+                  setShortAnswers((prev) => ({
+                    ...prev,
+                    [q.id]: e.target.value,
+                  }))
+                }
+                style={{
+                  ...styles.input,
+                  width: "100%",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+          ))}
+        </section>
+      )}
+
+      <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+        <button style={styles.btn} onClick={submitExam} disabled={submitting}>
+          {submitting ? "Đang chấm điểm..." : "✅ Nộp bài"}
+        </button>
+        <button style={styles.btnGhost} onClick={() => setExam(null)}>
+          Hủy, quay lại
+        </button>
       </div>
     </div>
   );
 }
 
-// ---------------- AI Gia sư ----------------
+function ConfigField({ label, value, onChange }) {
+  return (
+    <div style={{ flex: "1 1 160px" }}>
+      <div
+        style={{
+          fontSize: 12,
+          color: "var(--color-text-muted)",
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      <input
+        type="number"
+        min={1}
+        max={30}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ ...styles.input, width: "100%", boxSizing: "border-box" }}
+      />
+    </div>
+  );
+}
+
+function scoreColor(score) {
+  if (score >= 8)
+    return { bg: "var(--color-success-light)", fg: "var(--color-success)" };
+  if (score >= 5)
+    return { bg: "var(--color-warning-light)", fg: "var(--color-warning)" };
+  return { bg: "var(--color-danger-light)", fg: "var(--color-danger)" };
+}
+
+// ============================================================
+// AI GIA SƯ — giữ nguyên logic, chỉ chỉnh style nhẹ cho đồng bộ
+// ============================================================
 function TutorTab({ subjects }) {
   const [subjectId, setSubjectId] = useState("");
   const [weakTopics, setWeakTopics] = useState(null);
@@ -318,7 +583,11 @@ function TutorTab({ subjects }) {
     setError("");
     setLoading(true);
     try {
-      const genRes = await api.post("/tutor/generate", { subject_id: Number(subjectId), topic, count });
+      const genRes = await api.post("/tutor/generate", {
+        subject_id: Number(subjectId),
+        topic,
+        count,
+      });
       const idsParam = genRes.data.question_ids.join(",");
       const qRes = await api.get(`/practice/questions/by-ids?ids=${idsParam}`);
       setQuestions(qRes.data);
@@ -337,17 +606,26 @@ function TutorTab({ subjects }) {
   const submit = async () => {
     if (selectedAnswer === null) return;
     const q = questions[current];
-    const res = await api.post("/practice/submit", { question_id: q.id, answer_id: selectedAnswer });
+    const res = await api.post("/practice/submit", {
+      question_id: q.id,
+      answer_id: selectedAnswer,
+    });
     setResult(res.data);
     setDeepExplain("");
-    setScore((s) => ({ correct: s.correct + (res.data.is_correct ? 1 : 0), total: s.total + 1 }));
+    setScore((s) => ({
+      correct: s.correct + (res.data.is_correct ? 1 : 0),
+      total: s.total + 1,
+    }));
   };
 
   const askDeepExplain = async () => {
     const q = questions[current];
     setExplainLoading(true);
     try {
-      const res = await api.post("/tutor/explain", { question_id: q.id, chosen_answer_id: selectedAnswer });
+      const res = await api.post("/tutor/explain", {
+        question_id: q.id,
+        chosen_answer_id: selectedAnswer,
+      });
       setDeepExplain(res.data.explanation);
     } finally {
       setExplainLoading(false);
@@ -356,8 +634,9 @@ function TutorTab({ subjects }) {
 
   const nextQuestion = async () => {
     if (current + 1 >= questions.length) {
-      // Hết bài — gợi ý video liên quan tới chủ đề vừa luyện
-      const res = await api.get(`/tutor/suggest-video?subject_id=${subjectId}&topic=${encodeURIComponent(topic)}`);
+      const res = await api.get(
+        `/tutor/suggest-video?subject_id=${subjectId}&topic=${encodeURIComponent(topic)}`,
+      );
       setVideoSuggestions(res.data.suggestions);
     }
     setCurrent((c) => c + 1);
@@ -369,35 +648,60 @@ function TutorTab({ subjects }) {
   if (questions.length === 0) {
     return (
       <div style={{ maxWidth: 550 }}>
-        <p style={{ color: "#718096", fontSize: 13 }}>
-          AI Gia sư tạo bài tập nhắm ĐÚNG 1 chủ đề bạn chọn (dựa trên nội dung tài liệu đã xử lý AI),
-          và có thể chỉ ra bạn đang yếu chủ đề nào dựa trên lịch sử làm bài trước đó.
+        <p style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
+          AI Gia sư tạo bài tập nhắm ĐÚNG 1 chủ đề bạn chọn (dựa trên nội dung
+          tài liệu đã xử lý AI), và có thể chỉ ra bạn đang yếu chủ đề nào dựa
+          trên lịch sử làm bài trước đó.
         </p>
 
-        <select value={subjectId} onChange={(e) => { setSubjectId(e.target.value); setWeakTopics(null); }} style={styles.select}>
+        <select
+          value={subjectId}
+          onChange={(e) => {
+            setSubjectId(e.target.value);
+            setWeakTopics(null);
+          }}
+          style={styles.select}
+        >
           <option value="">-- Chọn môn học --</option>
           {subjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
           ))}
         </select>
 
         {subjectId && (
-          <button style={{ ...styles.btn, marginBottom: 12 }} onClick={loadWeakTopics}>
+          <button
+            style={{ ...styles.btnGhost, marginBottom: 12 }}
+            onClick={loadWeakTopics}
+          >
             Xem chủ đề đang yếu
           </button>
         )}
 
         {weakTopics && weakTopics.length === 0 && (
-          <p style={{ color: "#718096", fontSize: 13 }}>
-            Chưa có đủ dữ liệu (cần từng luyện tập ít nhất 1 chủ đề trước qua AI Gia sư này).
+          <p style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
+            Chưa có đủ dữ liệu (cần từng luyện tập ít nhất 1 chủ đề trước qua AI
+            Gia sư này).
           </p>
         )}
         {weakTopics && weakTopics.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             {weakTopics.map((t) => (
-              <div key={t.topic} style={styles.weakTopicRow} onClick={() => setTopic(t.topic)}>
+              <div
+                key={t.topic}
+                style={styles.weakTopicRow}
+                onClick={() => setTopic(t.topic)}
+              >
                 <span>{t.topic}</span>
-                <span style={{ color: t.percent_correct < 50 ? "#e53e3e" : "#dd6b20" }}>
+                <span
+                  style={{
+                    color:
+                      t.percent_correct < 50
+                        ? "var(--color-danger)"
+                        : "var(--color-warning)",
+                  }}
+                >
                   {t.percent_correct}% đúng ({t.attempts} lần)
                 </span>
               </div>
@@ -409,16 +713,29 @@ function TutorTab({ subjects }) {
           placeholder="Chủ đề cần luyện (VD: Este, Đạo hàm, Dao động điều hòa...)"
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
-          style={{ ...styles.input, width: "100%", boxSizing: "border-box", marginBottom: 10 }}
+          style={{
+            ...styles.input,
+            width: "100%",
+            boxSizing: "border-box",
+            marginBottom: 10,
+          }}
         />
         <div style={{ marginBottom: 10 }}>
-          Số câu: <input type="number" min={3} max={20} value={count} onChange={(e) => setCount(Number(e.target.value))} style={{ ...styles.input, width: 60 }} />
+          Số câu:{" "}
+          <input
+            type="number"
+            min={3}
+            max={20}
+            value={count}
+            onChange={(e) => setCount(Number(e.target.value))}
+            style={{ ...styles.input, width: 60 }}
+          />
         </div>
 
         <button style={styles.btn} onClick={startSession} disabled={loading}>
           {loading ? "Đang soạn bài tập..." : "Bắt đầu luyện tập chủ đề này"}
         </button>
-        {error && <p style={{ color: "#c53030" }}>{error}</p>}
+        {error && <p style={{ color: "var(--color-danger)" }}>{error}</p>}
       </div>
     );
   }
@@ -427,24 +744,34 @@ function TutorTab({ subjects }) {
     return (
       <div style={styles.resultBox}>
         <h3>Hoàn thành!</h3>
-        <p>Đúng {score.correct}/{score.total} câu về chủ đề "{topic}"</p>
+        <p>
+          Đúng {score.correct}/{score.total} câu về chủ đề "{topic}"
+        </p>
 
         {videoSuggestions && videoSuggestions.length > 0 && (
-          <div style={{ textAlign: "left", maxWidth: 400, margin: "16px auto" }}>
+          <div
+            style={{ textAlign: "left", maxWidth: 400, margin: "16px auto" }}
+          >
             <h4>🎥 Video liên quan gợi ý xem lại</h4>
             {videoSuggestions.map((v, i) => (
               <div key={i} style={styles.weakTopicRow}>
                 <span>{v.source_name}</span>
-                <span style={{ color: "#718096" }}>phút {v.timestamp}</span>
+                <span style={{ color: "var(--color-text-muted)" }}>
+                  phút {v.timestamp}
+                </span>
               </div>
             ))}
           </div>
         )}
         {videoSuggestions && videoSuggestions.length === 0 && (
-          <p style={{ color: "#718096", fontSize: 13 }}>Không có video liên quan tới chủ đề này trong dữ liệu đã xử lý.</p>
+          <p style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
+            Không có video liên quan tới chủ đề này trong dữ liệu đã xử lý.
+          </p>
         )}
 
-        <button style={styles.btn} onClick={() => setQuestions([])}>Luyện chủ đề khác</button>
+        <button style={styles.btn} onClick={() => setQuestions([])}>
+          Luyện chủ đề khác
+        </button>
       </div>
     );
   }
@@ -452,19 +779,26 @@ function TutorTab({ subjects }) {
   const q = questions[current];
   return (
     <div>
-      <p style={{ color: "#718096" }}>Chủ đề: <b>{topic}</b> · Câu {current + 1}/{questions.length}</p>
+      <p style={{ color: "var(--color-text-muted)" }}>
+        Chủ đề: <b>{topic}</b> · Câu {current + 1}/{questions.length}
+      </p>
       <div style={styles.questionBox}>
         <p style={{ fontWeight: 600 }}>{q.content}</p>
         {q.answers.map((a) => {
           let bg = "#fff";
           if (result) {
-            if (a.id === result.correct_answer_id) bg = "#c6f6d5";
-            else if (a.id === selectedAnswer) bg = "#fed7d7";
+            if (a.id === result.correct_answer_id)
+              bg = "var(--color-success-light)";
+            else if (a.id === selectedAnswer) bg = "var(--color-danger-light)";
           } else if (a.id === selectedAnswer) {
-            bg = "#ebf8ff";
+            bg = "var(--color-primary-light)";
           }
           return (
-            <div key={a.id} style={{ ...styles.answerRow, background: bg }} onClick={() => !result && setSelectedAnswer(a.id)}>
+            <div
+              key={a.id}
+              style={{ ...styles.answerRow, background: bg }}
+              onClick={() => !result && setSelectedAnswer(a.id)}
+            >
               {a.content}
             </div>
           );
@@ -473,360 +807,239 @@ function TutorTab({ subjects }) {
         {result && (
           <div style={styles.explanationBox}>
             {result.is_correct ? "✅ Chính xác!" : "❌ Sai rồi."}
-            {result.explanation && <p style={{ marginTop: 6 }}>{result.explanation}</p>}
+            {result.explanation && (
+              <p style={{ marginTop: 6 }}>{result.explanation}</p>
+            )}
 
             {!result.is_correct && !deepExplain && (
-              <button style={{ ...styles.btn, marginTop: 8, fontSize: 13 }} onClick={askDeepExplain} disabled={explainLoading}>
-                {explainLoading ? "AI đang giải thích..." : "🎓 Giải thích sâu hơn"}
+              <button
+                style={{ ...styles.btnGhost, marginTop: 8, fontSize: 13 }}
+                onClick={askDeepExplain}
+                disabled={explainLoading}
+              >
+                {explainLoading
+                  ? "AI đang giải thích..."
+                  : "🎓 Giải thích sâu hơn"}
               </button>
             )}
-            {deepExplain && <p style={{ marginTop: 8, background: "#fff", padding: 8, borderRadius: 6 }}>{deepExplain}</p>}
+            {deepExplain && (
+              <p
+                style={{
+                  marginTop: 8,
+                  background: "#fff",
+                  padding: 8,
+                  borderRadius: 6,
+                }}
+              >
+                {deepExplain}
+              </p>
+            )}
           </div>
         )}
 
         {!result ? (
-          <button style={styles.btn} onClick={submit} disabled={selectedAnswer === null}>Nộp đáp án</button>
+          <button
+            style={styles.btn}
+            onClick={submit}
+            disabled={selectedAnswer === null}
+          >
+            Nộp đáp án
+          </button>
         ) : (
-          <button style={styles.btn} onClick={nextQuestion}>Câu tiếp theo</button>
+          <button style={styles.btn} onClick={nextQuestion}>
+            Câu tiếp theo
+          </button>
         )}
       </div>
     </div>
   );
 }
 
-// ---------------- Thêm câu hỏi thủ công ----------------
-function AddQuestionTab({ subjects }) {
-  const [subjectId, setSubjectId] = useState("");
-  const [content, setContent] = useState("");
-  const [answers, setAnswers] = useState([
-    { content: "", is_correct: true },
-    { content: "", is_correct: false },
-    { content: "", is_correct: false },
-    { content: "", is_correct: false },
-  ]);
-  const [explanation, setExplanation] = useState("");
-  const [message, setMessage] = useState("");
-
-  const updateAnswer = (i, field, value) => {
-    const updated = [...answers];
-    if (field === "is_correct") {
-      // chỉ 1 đáp án đúng — bỏ tick các cái khác
-      updated.forEach((a, idx) => (a.is_correct = idx === i));
-    } else {
-      updated[i][field] = value;
-    }
-    setAnswers(updated);
-  };
-
-  const save = async () => {
-    if (!subjectId || !content.trim() || answers.some((a) => !a.content.trim())) {
-      setMessage("Vui lòng điền đủ môn học, câu hỏi và tất cả đáp án.");
-      return;
-    }
-    await api.post("/practice/questions", {
-      subject_id: Number(subjectId),
-      content,
-      answers,
-      explanation: explanation || null,
-    });
-    setContent("");
-    setAnswers(answers.map((a, i) => ({ content: "", is_correct: i === 0 })));
-    setExplanation("");
-    setMessage("✅ Đã lưu câu hỏi.");
-  };
-
-  return (
-    <div style={{ maxWidth: 600 }}>
-      <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={styles.select}>
-        <option value="">-- Chọn môn học --</option>
-        {subjects.map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
-        ))}
-      </select>
-
-      <textarea
-        placeholder="Nội dung câu hỏi"
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        style={styles.textarea}
-      />
-
-      {answers.map((a, i) => (
-        <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-          <input
-            type="radio"
-            checked={a.is_correct}
-            onChange={() => updateAnswer(i, "is_correct", true)}
-            title="Đánh dấu là đáp án đúng"
-          />
-          <input
-            placeholder={`Đáp án ${String.fromCharCode(65 + i)}`}
-            value={a.content}
-            onChange={(e) => updateAnswer(i, "content", e.target.value)}
-            style={{ ...styles.input, flex: 1 }}
-          />
-        </div>
-      ))}
-
-      <textarea
-        placeholder="Giải thích đáp án (hiện khi làm sai) - không bắt buộc"
-        value={explanation}
-        onChange={(e) => setExplanation(e.target.value)}
-        style={styles.textarea}
-      />
-
-      <button style={styles.btn} onClick={save}>Lưu câu hỏi</button>
-      {message && <p style={{ marginTop: 8, color: "#2f855a" }}>{message}</p>}
-    </div>
-  );
-}
-
-// ---------------- AI tạo câu hỏi ----------------
-function AiGenerateTab({ subjects }) {
-  const [subjectId, setSubjectId] = useState("");
-  const [documentId, setDocumentId] = useState("");
-  const [ragDocs, setRagDocs] = useState([]);
-  const [count, setCount] = useState(5);
-  const [drafts, setDrafts] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    api.get("/rag/documents").then((res) => setRagDocs(res.data));
-  }, []);
-
-  const generate = async () => {
-    if (!subjectId || !documentId) {
-      setError("Chọn môn học và tài liệu đã xử lý AI trước.");
-      return;
-    }
-    setError("");
-    setLoading(true);
-    try {
-      const res = await api.post("/practice/generate-ai", {
-        subject_id: Number(subjectId),
-        document_id: Number(documentId),
-        count,
-      });
-      setDrafts(res.data.draft_questions);
-    } catch (e) {
-      setError(e.response?.data?.detail || "Có lỗi khi tạo câu hỏi, thử lại.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveDraft = async (draft, index) => {
-    await api.post("/practice/questions", {
-      subject_id: Number(subjectId),
-      content: draft.content,
-      answers: draft.answers,
-      explanation: draft.explanation,
-    });
-    setDrafts((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  return (
-    <div style={{ maxWidth: 700 }}>
-      <p style={{ color: "#718096", fontSize: 13 }}>
-        AI sẽ đọc nội dung 1 tài liệu đã xử lý (Giai đoạn 4) và tự soạn câu hỏi. Kiểm tra kỹ trước khi lưu —
-        AI có thể tạo câu hỏi/đáp án chưa chính xác 100%.
-      </p>
-
-      <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={styles.select}>
-        <option value="">-- Chọn môn học --</option>
-        {subjects.map((s) => (
-          <option key={s.id} value={s.id}>{s.name}</option>
-        ))}
-      </select>
-
-      <select value={documentId} onChange={(e) => setDocumentId(e.target.value)} style={styles.select}>
-        <option value="">-- Chọn tài liệu đã xử lý AI --</option>
-        {ragDocs.map((d) => (
-          <option key={d.id} value={d.id}>{d.name}</option>
-        ))}
-      </select>
-
-      <input
-        type="number"
-        min={1}
-        max={15}
-        value={count}
-        onChange={(e) => setCount(Number(e.target.value))}
-        style={{ ...styles.input, width: 80 }}
-      />
-      <button style={styles.btn} onClick={generate} disabled={loading}>
-        {loading ? "Đang tạo câu hỏi... (có thể mất 1-2 phút)" : "Tạo câu hỏi bằng AI"}
-      </button>
-
-      {error && <p style={{ color: "#c53030" }}>{error}</p>}
-
-      {drafts.map((d, i) => (
-        <div key={i} style={styles.questionBox}>
-          <p style={{ fontWeight: 600 }}>{d.content}</p>
-          {d.answers.map((a, ai) => (
-            <div key={ai} style={{ ...styles.answerRow, background: a.is_correct ? "#c6f6d5" : "#fff" }}>
-              {a.content} {a.is_correct && "✓"}
-            </div>
-          ))}
-          {d.explanation && <p style={{ fontSize: 13, color: "#718096", marginTop: 6 }}>{d.explanation}</p>}
-          <button style={styles.btn} onClick={() => saveDraft(d, i)}>Lưu câu hỏi này</button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ---------------- Flashcard ----------------
-function FlashcardTab({ subjects }) {
-  const [subjectId, setSubjectId] = useState("");
-  const [front, setFront] = useState("");
-  const [back, setBack] = useState("");
-  const [dueCards, setDueCards] = useState([]);
-  const [current, setCurrent] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-
-  const loadDue = async () => {
-    const res = await api.get("/flashcards/due");
-    setDueCards(res.data);
-    setCurrent(0);
-    setFlipped(false);
-  };
-
-  useEffect(() => {
-    loadDue();
-  }, []);
-
-  const addCard = async () => {
-    if (!subjectId || !front.trim() || !back.trim()) return;
-    await api.post("/flashcards", { subject_id: Number(subjectId), front, back });
-    setFront("");
-    setBack("");
-    loadDue();
-  };
-
-  const review = async (quality) => {
-    const card = dueCards[current];
-    await api.post(`/flashcards/${card.id}/review`, { quality });
-    setFlipped(false);
-    setCurrent((c) => c + 1);
-  };
-
-  return (
-    <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-      <div style={{ flex: 1, minWidth: 280 }}>
-        <h4>Thêm flashcard mới</h4>
-        <select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} style={styles.select}>
-          <option value="">-- Chọn môn học --</option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
-        <textarea placeholder="Mặt trước (câu hỏi/thuật ngữ)" value={front} onChange={(e) => setFront(e.target.value)} style={styles.textarea} />
-        <textarea placeholder="Mặt sau (đáp án/giải thích)" value={back} onChange={(e) => setBack(e.target.value)} style={styles.textarea} />
-        <button style={styles.btn} onClick={addCard}>Thêm thẻ</button>
-      </div>
-
-      <div style={{ flex: 1, minWidth: 280 }}>
-        <h4>Ôn tập hôm nay ({dueCards.length} thẻ đến hạn)</h4>
-        {dueCards.length === 0 && <p style={{ color: "#718096" }}>Không có thẻ nào đến hạn ôn hôm nay 🎉</p>}
-        {current < dueCards.length && (
-          <div style={styles.flashcardBox} onClick={() => setFlipped(!flipped)}>
-            <p style={{ fontSize: 18, textAlign: "center" }}>
-              {flipped ? dueCards[current].back : dueCards[current].front}
-            </p>
-            <p style={{ fontSize: 12, color: "#a0aec0", textAlign: "center" }}>
-              {flipped ? "(mặt sau - bấm để lật lại)" : "(bấm để lật thẻ)"}
-            </p>
-          </div>
-        )}
-        {flipped && current < dueCards.length && (
-          <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
-            <button style={styles.reviewBtnBad} onClick={() => review(0)}>Quên hết</button>
-            <button style={styles.reviewBtnMed} onClick={() => review(3)}>Nhớ mơ hồ</button>
-            <button style={styles.reviewBtnGood} onClick={() => review(5)}>Nhớ rõ</button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
+// ============================================================
+// STYLES
+// ============================================================
 const styles = {
-  tabBar: { display: "flex", gap: 6, marginBottom: 22, borderBottom: "1px solid var(--color-border)", paddingBottom: 10, flexWrap: "wrap" },
-  tabBtn: {
-    padding: "8px 15px",
-    background: "var(--color-bg)",
-    color: "var(--color-text-muted)",
-    border: "none",
-    borderRadius: 20,
-    cursor: "pointer",
-    fontSize: 13,
-    fontWeight: 500,
+  tabBar: {
+    display: "flex",
+    gap: 6,
+    marginBottom: 20,
+    borderBottom: "1px solid var(--color-border)",
+    paddingBottom: 2,
   },
-  tabBtnActive: { background: "var(--color-primary)", color: "#fff" },
-  select: { padding: "9px 12px", border: "1px solid #cbd5e0", borderRadius: 8, marginRight: 8, marginBottom: 10, display: "block", fontSize: 14 },
-  input: { padding: "9px 12px", border: "1px solid #cbd5e0", borderRadius: 8, fontSize: 14 },
-  textarea: { width: "100%", padding: "9px 12px", border: "1px solid #cbd5e0", borderRadius: 8, marginBottom: 10, minHeight: 60, boxSizing: "border-box", fontSize: 14 },
+  tabBtn: {
+    padding: "8px 16px",
+    border: "none",
+    background: "transparent",
+    borderRadius: "8px 8px 0 0",
+    fontSize: 14,
+    fontWeight: 500,
+    color: "var(--color-text-muted)",
+    cursor: "pointer",
+  },
+  tabBtnActive: {
+    background: "var(--color-primary-light)",
+    color: "var(--color-primary-dark)",
+    fontWeight: 700,
+  },
+  tabContent: {},
+  select: {
+    display: "block",
+    width: "100%",
+    maxWidth: 320,
+    padding: "10px 12px",
+    marginBottom: 16,
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius)",
+    fontSize: 14,
+    background: "#fff",
+  },
+  input: {
+    padding: "9px 12px",
+    border: "1px solid var(--color-border)",
+    borderRadius: 8,
+    fontSize: 14,
+  },
+  textarea: {
+    width: "100%",
+    minHeight: 70,
+    padding: "9px 12px",
+    border: "1px solid var(--color-border)",
+    borderRadius: 8,
+    fontSize: 14,
+    marginBottom: 10,
+    boxSizing: "border-box",
+    fontFamily: "inherit",
+  },
   btn: {
-    padding: "10px 18px",
     background: "var(--color-primary)",
     color: "#fff",
     border: "none",
     borderRadius: 8,
-    cursor: "pointer",
-    fontWeight: 500,
+    padding: "10px 20px",
     fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
   },
-  questionBox: {
+  btnGhost: {
+    background: "#fff",
+    color: "var(--color-primary-dark)",
+    border: "1px solid var(--color-primary)",
+    borderRadius: 8,
+    padding: "10px 20px",
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  configCard: {
+    background: "var(--color-surface)",
     border: "1px solid var(--color-border)",
     borderRadius: "var(--radius)",
+    padding: 18,
     boxShadow: "var(--shadow-sm)",
-    padding: 20,
-    marginTop: 12,
-    maxWidth: 600,
-    background: "#fff",
   },
-  answerRow: {
-    padding: "10px 14px",
+  configRow: { display: "flex", gap: 12, flexWrap: "wrap" },
+  examListRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "12px 16px",
+    background: "#fff",
     border: "1px solid var(--color-border)",
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 8,
     cursor: "pointer",
-    fontSize: 14,
-    transition: "background 0.15s ease",
   },
-  explanationBox: {
-    background: "var(--color-bg)",
-    padding: 12,
+  scoreBadge: {
+    fontSize: 13,
+    fontWeight: 700,
+    padding: "4px 10px",
+    borderRadius: 20,
+  },
+  deleteBtn: {
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    fontSize: 15,
+  },
+  examHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    paddingBottom: 12,
+    borderBottom: "1px solid var(--color-border)",
+  },
+  questionBox: {
+    background: "#fff",
+    border: "1px solid var(--color-border)",
+    borderRadius: "var(--radius)",
+    padding: 16,
+    marginBottom: 12,
+    boxShadow: "var(--shadow-sm)",
+  },
+  answerRow: {
+    padding: "10px 12px",
+    border: "1px solid var(--color-border)",
     borderRadius: 8,
-    marginTop: 10,
+    marginTop: 8,
+    cursor: "pointer",
+    fontSize: 14,
+  },
+  tfRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 0",
+    borderBottom: "1px dashed var(--color-border)",
+    fontSize: 14,
+  },
+  tfBtn: {
+    border: "1px solid var(--color-border)",
+    background: "#fff",
+    borderRadius: 6,
+    padding: "5px 12px",
+    fontSize: 13,
+    cursor: "pointer",
+  },
+  tfBtnActiveTrue: {
+    background: "var(--color-success)",
+    color: "#fff",
+    borderColor: "var(--color-success)",
+  },
+  tfBtnActiveFalse: {
+    background: "var(--color-danger)",
+    color: "#fff",
+    borderColor: "var(--color-danger)",
+  },
+  pointsBadge: { fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" },
+  explanationBox: {
+    marginTop: 12,
+    padding: 12,
+    background: "var(--color-bg)",
+    borderRadius: 8,
     fontSize: 14,
   },
   resultBox: { textAlign: "center", padding: 40 },
-  flashcardBox: {
+  resultSummary: {
+    background: "var(--color-surface)",
     border: "1px solid var(--color-border)",
     borderRadius: "var(--radius)",
-    boxShadow: "var(--shadow-sm)",
-    padding: 40,
-    minHeight: 120,
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    cursor: "pointer",
-    background: "#fff",
+    padding: 24,
+    textAlign: "center",
+    boxShadow: "var(--shadow-md)",
   },
-  reviewBtnBad: { padding: "8px 14px", background: "var(--color-danger)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 },
-  reviewBtnMed: { padding: "8px 14px", background: "var(--color-warning)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 },
-  reviewBtnGood: { padding: "8px 14px", background: "var(--color-success)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 500 },
+  partScoreBox: {
+    background: "var(--color-bg)",
+    borderRadius: 8,
+    padding: "8px 16px",
+    flex: "1 1 140px",
+    textAlign: "center",
+  },
   weakTopicRow: {
     display: "flex",
     justifyContent: "space-between",
-    padding: "8px 12px",
-    border: "1px solid #e2e8f0",
-    borderRadius: 6,
-    marginBottom: 6,
+    padding: "8px 10px",
+    borderBottom: "1px solid var(--color-border)",
     cursor: "pointer",
-    fontSize: 14,
+    fontSize: 13,
   },
 };

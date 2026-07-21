@@ -313,10 +313,10 @@ export default function Subjects() {
                             />
                           </label>
                           <label style={styles.uploadLabel}>
-                            + PDF
+                            + PDF/DOCX
                             <input
                               type="file"
-                              accept=".pdf"
+                              accept=".pdf,.docx"
                               hidden
                               onChange={(e) => uploadFile(lesson.id, e.target.files[0], "pdf")}
                             />
@@ -325,7 +325,7 @@ export default function Subjects() {
                             + Đề thi
                             <input
                               type="file"
-                              accept=".pdf"
+                              accept=".pdf,.docx"
                               hidden
                               onChange={(e) => uploadFile(lesson.id, e.target.files[0], "exam")}
                             />

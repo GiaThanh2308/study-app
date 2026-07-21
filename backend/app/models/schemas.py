@@ -131,3 +131,61 @@ class FlashcardOut(FlashcardCreate):
 
 class FlashcardReviewRequest(BaseModel):
     quality: int  # 0-5, người dùng tự đánh giá độ nhớ (0=quên hết, 5=nhớ rất rõ)
+# ---------- Tạo đề thi AI (chuẩn cấu trúc THPT) ----------
+class ExamGenerateRequest(BaseModel):
+    subject_id: int
+    part1_count: int = 12
+    part2_count: int = 4
+    part3_count: int = 6
+
+
+class ExamQuestionOut(BaseModel):
+    id: int
+    part: int
+    content: str
+    question_type: str
+    answers: List[AnswerOut] = []  # part1: 4 đáp án; part2: 4 ý (is_correct luôn trả False khi chưa nộp)
+    model_config = {"from_attributes": True}
+
+
+class ExamOut(BaseModel):
+    id: int
+    subject_id: int
+    title: str
+    source_files: List[str] = []
+    part1: List[ExamQuestionOut] = []
+    part2: List[ExamQuestionOut] = []
+    part3: List[ExamQuestionOut] = []
+
+
+class ExamSubmitRequest(BaseModel):
+    mcq_answers: dict[int, int] = {}
+    truefalse_answers: dict[int, dict[int, bool]] = {}
+    short_answers: dict[int, str] = {}
+
+
+class ExamResultItem(BaseModel):
+    question_id: int
+    part: int
+    is_correct: Optional[bool] = None
+    earned_points: float
+    max_points: float
+    correct_display: str
+    explanation: Optional[str] = None
+
+
+class ExamSubmitResult(BaseModel):
+    total_score: float
+    part1_score: float
+    part2_score: float
+    part3_score: float
+    details: List[ExamResultItem]
+
+
+class ExamSummary(BaseModel):
+    id: int
+    title: str
+    subject_id: int
+    created_at: Optional[datetime]
+    total_questions: int
+    best_score: Optional[float] = None

@@ -91,23 +91,6 @@ class ChatMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class Question(Base):
-    __tablename__ = "questions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
-    content = Column(Text, nullable=False)
-    question_type = Column(String, default="mcq")  # mcq (trắc nghiệm) | essay (tự luận)
-    difficulty = Column(String, default="medium")  # easy | medium | hard
-    source = Column(String, default="manual")       # manual | ai_generated
-    topic = Column(String, nullable=True)             # chủ đề cụ thể, VD "Este", "Đạo hàm" — dùng để AI Tutor theo dõi điểm yếu
-    explanation = Column(Text, nullable=True)        # giải thích đáp án đúng, hiện khi làm sai
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    subject = relationship("Subject")
-    answers = relationship("Answer", back_populates="question", cascade="all, delete-orphan")
-
-
 class Answer(Base):
     __tablename__ = "answers"
 
@@ -144,3 +127,55 @@ class Flashcard(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     subject = relationship("Subject")
+class Question(Base):
+    __tablename__ = "questions"
+    id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    content = Column(Text, nullable=False)
+    question_type = Column(String, default="mcq")  # mcq | truefalse | short_answer | essay
+    difficulty = Column(String, default="medium")
+    source = Column(String, default="manual")
+    topic = Column(String, nullable=True)
+    explanation = Column(Text, nullable=True)
+    correct_answer_text = Column(Text, nullable=True)  # đáp án đúng cho câu "trả lời ngắn"
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    subject = relationship("Subject")
+    answers = relationship("Answer", back_populates="question", cascade="all, delete-orphan")
+
+# (Answer, StudyHistory, Flashcard giữ nguyên như cũ)
+
+class ExamPaper(Base):
+    __tablename__ = "exam_papers"
+    id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=False)
+    title = Column(String, nullable=False)
+    source_files = Column(Text, nullable=True)
+    part1_count = Column(Integer, default=12)
+    part2_count = Column(Integer, default=4)
+    part3_count = Column(Integer, default=6)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    subject = relationship("Subject")
+    items = relationship("ExamItem", back_populates="exam", cascade="all, delete-orphan", order_by="ExamItem.order_index")
+    attempts = relationship("ExamAttempt", back_populates="exam", cascade="all, delete-orphan")
+
+class ExamItem(Base):
+    __tablename__ = "exam_items"
+    id = Column(Integer, primary_key=True, index=True)
+    exam_id = Column(Integer, ForeignKey("exam_papers.id"), nullable=False)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    part = Column(Integer, nullable=False)  # 1, 2, 3
+    order_index = Column(Integer, default=0)
+    exam = relationship("ExamPaper", back_populates="items")
+    question = relationship("Question")
+
+class ExamAttempt(Base):
+    __tablename__ = "exam_attempts"
+    id = Column(Integer, primary_key=True, index=True)
+    exam_id = Column(Integer, ForeignKey("exam_papers.id"), nullable=False)
+    score = Column(Integer, nullable=False)  # x100
+    part1_score = Column(Integer, default=0)
+    part2_score = Column(Integer, default=0)
+    part3_score = Column(Integer, default=0)
+    detail_json = Column(Text, nullable=True)
+    submitted_at = Column(DateTime(timezone=True), server_default=func.now())
+    exam = relationship("ExamPaper", back_populates="attempts")
