@@ -98,6 +98,7 @@ class QuestionOut(BaseModel):
     question_type: str
     difficulty: str
     source: str
+    topic: Optional[str] = None
     explanation: Optional[str]
     answers: List[AnswerOut] = []
     model_config = {"from_attributes": True}

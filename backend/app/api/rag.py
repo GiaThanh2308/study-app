@@ -153,21 +153,41 @@ def rag_status(document_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/rag/documents")
-def list_ready_documents(db: Session = Depends(get_db)):
-    """Danh sách tài liệu đã sẵn sàng để chat cùng."""
-    docs = db.query(models.Document).filter(models.Document.rag_status == "ready").all()
+def list_ready_documents(subject_id: int | None = None, db: Session = Depends(get_db)):
+    """Danh sách tài liệu đã sẵn sàng để chat cùng, có thể lọc theo môn học."""
+    if subject_id:
+        from app.api.tutor import _get_subject_source_ids
+        document_ids, _ = _get_subject_source_ids(db, subject_id)
+        docs = db.query(models.Document).filter(
+            models.Document.id.in_(document_ids), models.Document.rag_status == "ready"
+        ).all()
+    else:
+        docs = db.query(models.Document).filter(models.Document.rag_status == "ready").all()
     return [{"id": d.id, "name": d.original_filename} for d in docs]
 
 
 class RagChatRequest(BaseModel):
     message: str
-    document_id: int | None = None  # None = tìm trong tất cả tài liệu đã xử lý
+    document_id: int | None = None  # ưu tiên cao nhất nếu có: chỉ tìm trong đúng 1 tài liệu
+    subject_id: int | None = None   # nếu không chọn tài liệu cụ thể: giới hạn tìm trong đúng 1 môn học
 
 
 @router.post("/rag/chat")
 async def rag_chat(payload: RagChatRequest, db: Session = Depends(get_db)):
     query_emb = await get_embedding(payload.message)
-    hits = vector_query(query_emb, n_results=4, document_id=payload.document_id)
+
+    if payload.document_id:
+        # Trường hợp cụ thể nhất: đã chọn đúng 1 tài liệu
+        hits = vector_query(query_emb, n_results=4, document_id=payload.document_id)
+    elif payload.subject_id:
+        # Giới hạn tìm kiếm trong đúng các tài liệu/video thuộc môn học đã chọn
+        from app.api.tutor import _get_subject_source_ids
+        from app.ai.rag.vector_store import query_within_sources
+        document_ids, video_ids = _get_subject_source_ids(db, payload.subject_id)
+        hits = query_within_sources(query_emb, document_ids=document_ids, video_ids=video_ids, n_results=4)
+    else:
+        # Không chọn gì cả: tìm trong toàn bộ tài liệu đã xử lý (mọi môn)
+        hits = vector_query(query_emb, n_results=4, document_id=None)
 
     if not hits:
         context_text = "(Không tìm thấy đoạn tài liệu nào liên quan.)"

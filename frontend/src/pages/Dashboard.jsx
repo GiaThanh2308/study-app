@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
 
 // ── Cấu hình nhanh — chỉnh 2 dòng này nếu cần ──
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [now, setNow] = useState(new Date());
   const [sessionStart] = useState(() => new Date());
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get("/analytics/overview").then((res) => setData(res.data));
@@ -64,6 +66,28 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Widget "Tiếp tục học" — nổi bật, bấm vào để luyện ngay chủ đề học gần nhất */}
+      {data.continue_learning && (
+        <button
+          style={styles.continueCard}
+          onClick={() =>
+            navigate(
+              `/practice?tab=tutor&topic=${encodeURIComponent(data.continue_learning.topic)}`
+            )
+          }
+        >
+          <div style={styles.continueIcon}>▶</div>
+          <div style={{ textAlign: "left", flex: 1 }}>
+            <div style={styles.continueLabel}>Tiếp tục học</div>
+            <div style={styles.continueTopic}>
+              {data.continue_learning.topic}
+              <span style={styles.continueSubject}> · {data.continue_learning.subject_name}</span>
+            </div>
+          </div>
+          <div style={styles.continueArrow}>→</div>
+        </button>
+      )}
+
       {/* Hàng 3 thẻ số liệu chính */}
       <div style={styles.statsGrid}>
         <div style={{ ...styles.statCard, ...styles.timerCard }}>
@@ -90,28 +114,59 @@ export default function Dashboard() {
           <div style={styles.statLabel}>📚 Tổng giờ học (ước tính)</div>
           <div style={styles.hoursNumber}>{data.total_hours_estimated}</div>
           <div style={styles.statSub}>Tính từ toàn bộ lịch sử học tập</div>
+
+          <div style={styles.goalWrap}>
+            <div style={styles.goalLabelRow}>
+              <span>Mục tiêu hôm nay</span>
+              <span>
+                {data.today_minutes}/{data.daily_goal_minutes} phút
+              </span>
+            </div>
+            <div style={styles.goalBarBg}>
+              <div
+                style={{
+                  ...styles.goalBarFill,
+                  width: `${Math.min(100, (data.today_minutes / data.daily_goal_minutes) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Tiến độ theo môn */}
+      {/* Tiến độ theo môn — mini biểu đồ cột */}
       <div style={styles.sectionCard}>
         <h3 style={styles.sectionTitle}>Theo môn học</h3>
         {data.by_subject.length === 0 && (
           <p style={styles.emptyText}>Chưa có môn học nào — vào "Môn học" để bắt đầu.</p>
         )}
-        {data.by_subject.map((s) => (
-          <div key={s.subject_id} style={styles.subjectRow}>
-            <span style={styles.subjectName}>{s.subject_name}</span>
-            <div style={styles.barBg}>
-              {s.percent_correct !== null && (
-                <div style={{ ...styles.barFill, width: `${s.percent_correct}%` }} />
-              )}
-            </div>
-            <span style={styles.subjectPercent}>
-              {s.percent_correct !== null ? `${s.percent_correct}%` : "chưa làm"}
-            </span>
+        {data.by_subject.length > 0 && (
+          <div style={styles.barChartRow}>
+            {data.by_subject.map((s) => {
+              const pct = s.percent_correct ?? 0;
+              return (
+                <div key={s.subject_id} style={styles.barChartCol}>
+                  <div style={styles.barChartValue}>
+                    {s.percent_correct !== null ? `${s.percent_correct}%` : "—"}
+                  </div>
+                  <div style={styles.barChartTrack}>
+                    <div
+                      style={{
+                        ...styles.barChartBar,
+                        height: `${Math.max(pct, 3)}%`,
+                        background:
+                          s.percent_correct === null
+                            ? "var(--color-border)"
+                            : "linear-gradient(180deg, #4f6ef7, #0d9488)",
+                      }}
+                    />
+                  </div>
+                  <div style={styles.barChartLabel}>{s.subject_name}</div>
+                </div>
+              );
+            })}
           </div>
-        ))}
+        )}
       </div>
 
       {/* Điểm yếu nhất */}
@@ -158,6 +213,80 @@ const styles = {
   },
   loading: { padding: 24, color: "#8892a6" },
   header: { marginBottom: 24 },
+
+  continueCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+    width: "100%",
+    textAlign: "left",
+    background: "var(--gradient-blue)",
+    border: "none",
+    borderRadius: 14,
+    padding: "18px 22px",
+    marginBottom: 20,
+    cursor: "pointer",
+    boxShadow: "0 8px 20px -8px rgba(79,110,247,0.4)",
+  },
+  continueIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: "50%",
+    background: "rgba(255,255,255,0.2)",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 15,
+    flexShrink: 0,
+  },
+  continueLabel: { fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: 600, marginBottom: 2 },
+  continueTopic: { fontSize: 17, fontWeight: 700, color: "#fff" },
+  continueSubject: { fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.8)" },
+  continueArrow: { fontSize: 20, color: "#fff", opacity: 0.85 },
+
+  goalWrap: { marginTop: 14 },
+  goalLabelRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 11.5,
+    opacity: 0.85,
+    marginBottom: 5,
+  },
+  goalBarBg: {
+    height: 6,
+    background: "rgba(255,255,255,0.25)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  goalBarFill: { height: "100%", background: "#fff", borderRadius: 3 },
+
+  barChartRow: {
+    display: "flex",
+    gap: 18,
+    alignItems: "flex-end",
+    height: 160,
+    paddingTop: 10,
+  },
+  barChartCol: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    flex: 1,
+    height: "100%",
+  },
+  barChartValue: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: "var(--color-text)" },
+  barChartTrack: {
+    flex: 1,
+    width: 28,
+    background: "var(--color-bg)",
+    borderRadius: 6,
+    display: "flex",
+    alignItems: "flex-end",
+    overflow: "hidden",
+  },
+  barChartBar: { width: "100%", borderRadius: "6px 6px 0 0", transition: "height 0.4s ease" },
+  barChartLabel: { fontSize: 12, color: "var(--color-text-muted)", marginTop: 8, fontWeight: 600 },
   eyebrow: {
     fontSize: 13,
     color: "#8892a6",
@@ -218,7 +347,7 @@ const styles = {
   },
 
   sectionCard: {
-    background: "#fff",
+    background: "var(--color-surface)",
     border: "1px solid #eceef2",
     borderRadius: 14,
     padding: "20px 22px",

@@ -7,6 +7,8 @@ export default function Chat() {
   const [loading, setLoading] = useState(false);
   const [ollamaOk, setOllamaOk] = useState(true);
   const [ragMode, setRagMode] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState(null);
   const [ragDocs, setRagDocs] = useState([]);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [expandedSource, setExpandedSource] = useState(null); // key: "msgIndex-sourceIndex"
@@ -16,8 +18,15 @@ export default function Chat() {
   useEffect(() => {
     api.get("/chat/history").then((res) => setMessages(res.data));
     api.get("/chat/status").then((res) => setOllamaOk(res.data.ollama_running));
-    api.get("/rag/documents").then((res) => setRagDocs(res.data));
+    api.get("/subjects").then((res) => setSubjects(res.data));
   }, []);
+
+  // Khi đổi môn học, tải lại danh sách tài liệu đã xử lý CỦA ĐÚNG môn đó, bỏ chọn tài liệu cũ
+  useEffect(() => {
+    const url = selectedSubject ? `/rag/documents?subject_id=${selectedSubject}` : "/rag/documents";
+    api.get(url).then((res) => setRagDocs(res.data));
+    setSelectedDoc(null);
+  }, [selectedSubject]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,7 +46,7 @@ export default function Chat() {
         ? "http://127.0.0.1:8000/api/rag/chat"
         : "http://127.0.0.1:8000/api/chat/send";
       const body = ragMode
-        ? { message: userText, document_id: selectedDoc }
+        ? { message: userText, document_id: selectedDoc, subject_id: selectedDoc ? null : selectedSubject }
         : { message: userText };
 
       const response = await fetch(url, {
@@ -117,12 +126,34 @@ export default function Chat() {
           </label>
 
           {ragMode && (
+            <div style={styles.subjectChipRow}>
+              <button
+                style={{ ...styles.subjectChip, ...(selectedSubject === null ? styles.subjectChipActive : {}) }}
+                onClick={() => setSelectedSubject(null)}
+              >
+                Tất cả môn
+              </button>
+              {subjects.map((s) => (
+                <button
+                  key={s.id}
+                  style={{ ...styles.subjectChip, ...(selectedSubject === s.id ? styles.subjectChipActive : {}) }}
+                  onClick={() => setSelectedSubject(s.id)}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {ragMode && (
             <select
               value={selectedDoc || ""}
               onChange={(e) => setSelectedDoc(e.target.value ? Number(e.target.value) : null)}
               style={styles.select}
             >
-              <option value="">Tất cả tài liệu đã xử lý</option>
+              <option value="">
+                {selectedSubject ? "Tất cả tài liệu của môn này" : "Tất cả tài liệu đã xử lý"}
+              </option>
               {ragDocs.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
@@ -155,8 +186,25 @@ export default function Chat() {
               <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>
                 Bắt đầu hỏi AI điều gì đó
               </div>
-              <div style={{ fontSize: 13, color: "#8892a6" }}>
+              <div style={{ fontSize: 13, color: "var(--color-text-muted)", marginBottom: 18 }}>
                 Bật "Chat với tài liệu" nếu muốn AI trả lời dựa trên PDF / video bạn đã xử lý.
+              </div>
+
+              <div style={styles.promptChipGrid}>
+                {[
+                  "Tóm tắt lý thuyết chương này giúp tôi",
+                  "Giải thích khái niệm này bằng ví dụ dễ hiểu",
+                  "Cho tôi 3 câu hỏi trắc nghiệm để tự kiểm tra",
+                  "Giải giúp tôi bài tập khó này",
+                ].map((suggestion, idx) => (
+                  <button
+                    key={idx}
+                    style={styles.promptChip}
+                    onClick={() => setInput(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -300,7 +348,7 @@ const styles = {
   topBar: {
     padding: "24px 32px 16px",
     borderBottom: "1px solid #eceef2",
-    background: "#fff",
+    background: "var(--color-surface)",
   },
   title: { fontSize: 24, fontWeight: 700, margin: "0 0 14px", letterSpacing: "-0.02em" },
   modeRow: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" },
@@ -322,7 +370,23 @@ const styles = {
     borderRadius: 10,
     border: "1px solid #dde1e8",
     fontSize: 13.5,
-    background: "#fff",
+    background: "var(--color-surface)",
+  },
+  subjectChipRow: { display: "flex", gap: 6, flexWrap: "wrap" },
+  subjectChip: {
+    padding: "6px 14px",
+    borderRadius: 20,
+    border: "1px solid #dde1e8",
+    background: "var(--color-surface)",
+    color: "var(--color-text-muted)",
+    fontSize: 13,
+    cursor: "pointer",
+    fontWeight: 500,
+  },
+  subjectChipActive: {
+    background: "var(--color-primary)",
+    color: "#fff",
+    border: "1px solid var(--color-primary)",
   },
   ragHint: { fontSize: 12.5, color: "#b45309" },
   warning: {
@@ -339,6 +403,24 @@ const styles = {
   chatInner: { maxWidth: 760, margin: "0 auto", padding: "24px 24px 8px" },
 
   emptyState: { textAlign: "center", padding: "60px 24px" },
+  promptChipGrid: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "center",
+    maxWidth: 480,
+    margin: "0 auto",
+  },
+  promptChip: {
+    padding: "9px 16px",
+    borderRadius: 18,
+    border: "1px solid var(--color-border)",
+    background: "var(--color-surface)",
+    color: "var(--color-text)",
+    fontSize: 13,
+    cursor: "pointer",
+    textAlign: "left",
+  },
 
   msgRow: { display: "flex", alignItems: "flex-end", gap: 10, marginBottom: 18 },
   avatar: {
@@ -367,7 +449,7 @@ const styles = {
     borderBottomRightRadius: 4,
   },
   bubbleAi: {
-    background: "#fff",
+    background: "var(--color-surface)",
     border: "1px solid #eceef2",
     color: "#1e2433",
     borderBottomLeftRadius: 4,
@@ -407,8 +489,8 @@ const styles = {
   pdfIframe: { width: "100%", height: 460, border: "none", display: "block" },
 
   inputBarWrap: {
-    borderTop: "1px solid #eceef2",
-    background: "#fff",
+    borderTop: "1px solid var(--color-border)",
+    background: "var(--color-surface)",
     padding: "14px 24px 20px",
   },
   inputBar: {
@@ -417,8 +499,8 @@ const styles = {
     display: "flex",
     alignItems: "flex-end",
     gap: 10,
-    background: "#f7f8fc",
-    border: "1px solid #dde1e8",
+    background: "var(--color-bg)",
+    border: "1px solid var(--color-border)",
     borderRadius: 20,
     padding: "8px 8px 8px 18px",
   },
@@ -433,6 +515,7 @@ const styles = {
     fontFamily: "inherit",
     padding: "8px 0",
     maxHeight: 160,
+    color: "var(--color-text)",
   },
   sendBtn: {
     width: 38,

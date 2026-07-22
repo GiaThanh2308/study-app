@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { useEffect, useState } from "react";
 
 const menuItems = [
   { path: "/", label: "Dashboard", icon: "🏠" },
@@ -6,11 +7,16 @@ const menuItems = [
   { path: "/chat", label: "Chat AI", icon: "💬" },
   { path: "/practice", label: "Luyện tập", icon: "📝" },
   { path: "/mistakes", label: "Sổ lỗi sai", icon: "❌" },
-  { path: "/stats", label: "Thống kê", icon: "📊" },
-  { path: "/settings", label: "Cài đặt", icon: "⚙️" },
 ];
 
 export default function Sidebar() {
+  const [theme, setTheme] = useState(() => localStorage.getItem("studyapp-theme") || "light");
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("studyapp-theme", theme);
+  }, [theme]);
+
   return (
     <aside style={styles.sidebar}>
       <div style={styles.logoBox}>
@@ -41,6 +47,14 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      <button
+        style={styles.themeToggle}
+        onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+        title="Chuyển giao diện sáng/tối"
+      >
+        {theme === "light" ? "🌙 Chế độ tối" : "☀️ Chế độ sáng"}
+      </button>
 
       <div style={styles.footer}>Ôn thi THPT · Offline AI</div>
     </aside>
@@ -79,6 +93,17 @@ const styles = {
     fontSize: 14,
     borderRadius: 8,
     transition: "background 0.15s ease, color 0.15s ease",
+  },
+  themeToggle: {
+    margin: "0 10px 12px",
+    padding: "9px 12px",
+    borderRadius: 8,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#cbd5e0",
+    fontSize: 13,
+    cursor: "pointer",
+    textAlign: "left",
   },
   footer: {
     padding: "12px 22px 0",

@@ -50,7 +50,7 @@ const styles = {
     padding: 24,
     textAlign: "center",
     maxWidth: 300,
-    background: "#fff",
+    background: "var(--color-surface)",
   },
   statNumber: { fontSize: 36, fontWeight: 700, color: "var(--color-primary)" },
   subjectRow: { display: "flex", alignItems: "center", gap: 12, marginBottom: 10, maxWidth: 500 },

@@ -1,10 +1,15 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../api";
 
 const TABS = ["Tạo đề thi", "AI Gia sư"];
 
 export default function Practice() {
-  const [tab, setTab] = useState(TABS[0]);
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") === "tutor" ? "AI Gia sư" : TABS[0];
+  const initialTopic = searchParams.get("topic") || "";
+
+  const [tab, setTab] = useState(initialTab);
   const [subjects, setSubjects] = useState([]);
 
   useEffect(() => {
@@ -19,14 +24,14 @@ export default function Practice() {
         theo từng chủ đề với AI Gia sư.
       </p>
 
-      <div style={styles.tabBar}>
+      <div style={styles.segmentedControl}>
         {TABS.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             style={{
-              ...styles.tabBtn,
-              ...(tab === t ? styles.tabBtnActive : {}),
+              ...styles.segmentBtn,
+              ...(tab === t ? styles.segmentBtnActive : {}),
             }}
           >
             {t}
@@ -36,7 +41,7 @@ export default function Practice() {
 
       <div style={styles.tabContent}>
         {tab === "Tạo đề thi" && <ExamTab subjects={subjects} />}
-        {tab === "AI Gia sư" && <TutorTab subjects={subjects} />}
+        {tab === "AI Gia sư" && <TutorTab subjects={subjects} initialTopic={initialTopic} />}
       </div>
     </div>
   );
@@ -141,18 +146,17 @@ function ExamTab({ subjects }) {
   if (!exam) {
     return (
       <div style={{ maxWidth: 640 }}>
-        <select
-          value={subjectId}
-          onChange={(e) => setSubjectId(e.target.value)}
-          style={styles.select}
-        >
-          <option value="">-- Chọn môn học --</option>
+        <div style={styles.chipRow}>
           {subjects.map((s) => (
-            <option key={s.id} value={s.id}>
+            <button
+              key={s.id}
+              style={{ ...styles.chip, ...(subjectId === String(s.id) ? styles.chipActive : {}) }}
+              onClick={() => setSubjectId(String(s.id))}
+            >
               {s.name}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
 
         {subjectId && (
           <>
@@ -160,19 +164,28 @@ function ExamTab({ subjects }) {
               <h4 style={{ margin: "0 0 12px" }}>
                 Cấu trúc đề (chuẩn THPT Quốc Gia)
               </h4>
-              <div style={styles.configRow}>
-                <ConfigField
-                  label="Phần I — Trắc nghiệm (0.25đ/câu, tổng 3đ)"
+              <div style={styles.stepRow}>
+                <StepField
+                  stepNumber={1}
+                  icon="✅"
+                  label="Trắc nghiệm"
+                  sublabel="0.25đ/câu · tổng 3đ"
                   value={part1Count}
                   onChange={setPart1Count}
                 />
-                <ConfigField
-                  label="Phần II — Đúng/Sai 4 ý (tổng 4đ)"
+                <StepField
+                  stepNumber={2}
+                  icon="⚖️"
+                  label="Đúng / Sai"
+                  sublabel="4 ý mỗi câu · tổng 4đ"
                   value={part2Count}
                   onChange={setPart2Count}
                 />
-                <ConfigField
-                  label="Phần III — Trả lời ngắn (tổng 3đ)"
+                <StepField
+                  stepNumber={3}
+                  icon="✍️"
+                  label="Trả lời ngắn"
+                  sublabel="đáp số ngắn · tổng 3đ"
                   value={part3Count}
                   onChange={setPart3Count}
                 />
@@ -517,6 +530,29 @@ function ExamTab({ subjects }) {
   );
 }
 
+function StepField({ stepNumber, icon, label, sublabel, value, onChange }) {
+  return (
+    <div style={styles.stepBlock}>
+      <div style={styles.stepBadge}>{stepNumber}</div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+          <span>{icon}</span> {label}
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--color-text-muted)", marginTop: 1 }}>{sublabel}</div>
+      </div>
+      <input
+        type="number"
+        min={1}
+        max={30}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={styles.stepInput}
+      />
+      <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>câu</span>
+    </div>
+  );
+}
+
 function ConfigField({ label, value, onChange }) {
   return (
     <div style={{ flex: "1 1 160px" }}>
@@ -552,10 +588,10 @@ function scoreColor(score) {
 // ============================================================
 // AI GIA SƯ — giữ nguyên logic, chỉ chỉnh style nhẹ cho đồng bộ
 // ============================================================
-function TutorTab({ subjects }) {
+function TutorTab({ subjects, initialTopic = "" }) {
   const [subjectId, setSubjectId] = useState("");
   const [weakTopics, setWeakTopics] = useState(null);
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(initialTopic);
   const [count, setCount] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -654,21 +690,20 @@ function TutorTab({ subjects }) {
           trên lịch sử làm bài trước đó.
         </p>
 
-        <select
-          value={subjectId}
-          onChange={(e) => {
-            setSubjectId(e.target.value);
-            setWeakTopics(null);
-          }}
-          style={styles.select}
-        >
-          <option value="">-- Chọn môn học --</option>
+        <div style={styles.chipRow}>
           {subjects.map((s) => (
-            <option key={s.id} value={s.id}>
+            <button
+              key={s.id}
+              style={{ ...styles.chip, ...(subjectId === String(s.id) ? styles.chipActive : {}) }}
+              onClick={() => {
+                setSubjectId(String(s.id));
+                setWeakTopics(null);
+              }}
+            >
               {s.name}
-            </option>
+            </button>
           ))}
-        </select>
+        </div>
 
         {subjectId && (
           <button
@@ -826,7 +861,7 @@ function TutorTab({ subjects }) {
               <p
                 style={{
                   marginTop: 8,
-                  background: "#fff",
+                  background: "var(--color-surface)",
                   padding: 8,
                   borderRadius: 6,
                 }}
@@ -859,6 +894,79 @@ function TutorTab({ subjects }) {
 // STYLES
 // ============================================================
 const styles = {
+  chipRow: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 },
+  chip: {
+    padding: "7px 16px",
+    borderRadius: 20,
+    border: "1px solid var(--color-border)",
+    background: "var(--color-surface)",
+    color: "var(--color-text-muted)",
+    fontSize: 13.5,
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+  chipActive: {
+    background: "var(--color-primary)",
+    color: "#fff",
+    border: "1px solid var(--color-primary)",
+  },
+  segmentedControl: {
+    display: "inline-flex",
+    background: "var(--color-bg)",
+    border: "1px solid var(--color-border)",
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+    gap: 2,
+  },
+  stepRow: { display: "flex", flexDirection: "column", gap: 10, marginTop: 4 },
+  stepBlock: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 14px",
+    background: "var(--color-bg)",
+    border: "1px solid var(--color-border)",
+    borderRadius: 10,
+  },
+  stepBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: "50%",
+    background: "var(--color-primary)",
+    color: "#fff",
+    fontSize: 12.5,
+    fontWeight: 700,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  stepInput: {
+    width: 52,
+    padding: "6px 8px",
+    borderRadius: 8,
+    border: "1px solid var(--color-border)",
+    textAlign: "center",
+    fontSize: 14,
+  },
+  segmentBtn: {
+    padding: "8px 20px",
+    border: "none",
+    background: "transparent",
+    borderRadius: 9,
+    fontSize: 14,
+    fontWeight: 500,
+    color: "var(--color-text-muted)",
+    cursor: "pointer",
+    transition: "background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease",
+  },
+  segmentBtnActive: {
+    background: "var(--color-surface)",
+    color: "var(--color-primary)",
+    boxShadow: "var(--shadow-sm)",
+    fontWeight: 600,
+  },
   tabBar: {
     display: "flex",
     gap: 6,
@@ -891,7 +999,7 @@ const styles = {
     border: "1px solid var(--color-border)",
     borderRadius: "var(--radius)",
     fontSize: 14,
-    background: "#fff",
+    background: "var(--color-surface)",
   },
   input: {
     padding: "9px 12px",
@@ -921,7 +1029,7 @@ const styles = {
     cursor: "pointer",
   },
   btnGhost: {
-    background: "#fff",
+    background: "var(--color-surface)",
     color: "var(--color-primary-dark)",
     border: "1px solid var(--color-primary)",
     borderRadius: 8,
@@ -943,7 +1051,7 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     padding: "12px 16px",
-    background: "#fff",
+    background: "var(--color-surface)",
     border: "1px solid var(--color-border)",
     borderRadius: 10,
     marginBottom: 8,
@@ -969,7 +1077,7 @@ const styles = {
     borderBottom: "1px solid var(--color-border)",
   },
   questionBox: {
-    background: "#fff",
+    background: "var(--color-surface)",
     border: "1px solid var(--color-border)",
     borderRadius: "var(--radius)",
     padding: 16,
@@ -994,7 +1102,7 @@ const styles = {
   },
   tfBtn: {
     border: "1px solid var(--color-border)",
-    background: "#fff",
+    background: "var(--color-surface)",
     borderRadius: 6,
     padding: "5px 12px",
     fontSize: 13,

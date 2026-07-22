@@ -397,7 +397,7 @@ const styles = {
     flexDirection: "column",
     alignItems: "flex-start",
     gap: 10,
-    background: "#fff",
+    background: "var(--color-surface)",
     border: "2px solid #eceef2",
     borderRadius: 16,
     padding: "18px 20px",
@@ -422,7 +422,7 @@ const styles = {
   hintBox: {
     textAlign: "center",
     padding: "40px 24px",
-    background: "#fff",
+    background: "var(--color-surface)",
     border: "1px dashed #dde1e8",
     borderRadius: 14,
     color: "#8892a6",
@@ -430,7 +430,7 @@ const styles = {
   },
 
   detailCard: {
-    background: "#fff",
+    background: "var(--color-surface)",
     border: "1px solid #eceef2",
     borderRadius: 16,
     padding: 22,
@@ -464,7 +464,7 @@ const styles = {
 
   lessonList: { marginTop: 10, display: "flex", flexDirection: "column", gap: 8 },
   lessonCard: {
-    background: "#fff",
+    background: "var(--color-surface)",
     border: "1px solid #eceef2",
     borderRadius: 10,
     padding: 14,

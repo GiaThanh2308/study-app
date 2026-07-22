@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
@@ -12,42 +12,71 @@ router = APIRouter()
 
 SESSION_GAP_MINUTES = 10   # 2 hoạt động cách nhau dưới 10 phút coi là cùng 1 phiên học liên tục
 MIN_EVENT_MINUTES = 1      # mỗi hoạt động đơn lẻ (không có hoạt động liền sau) tính tối thiểu 1 phút
+DAILY_GOAL_MINUTES = 60    # mục tiêu học mỗi ngày mặc định — có thể chỉnh lại con số này
 
 
-def _estimate_study_hours(db: Session) -> float:
-    """
-    Ước tính tổng thời gian học dựa trên timestamp của StudyHistory (làm bài) và ChatMessage (hỏi AI).
-    Gom các hoạt động gần nhau thành 1 phiên, cộng dồn thời lượng — vì hệ thống không có cách nào
-    biết chính xác người dùng ngồi học bao lâu, đây là cách ước lượng hợp lý dựa trên hoạt động thực tế.
-    """
-    timestamps = []
-    for row in db.query(models.StudyHistory.timestamp).all():
-        timestamps.append(row[0])
-    for row in db.query(models.ChatMessage.created_at).all():
-        timestamps.append(row[0])
-
+def _sessionize(timestamps: list, gap_minutes: int = SESSION_GAP_MINUTES) -> float:
+    """Gom các mốc thời gian gần nhau thành phiên liên tục, trả về tổng số phút."""
+    timestamps = sorted(t for t in timestamps if t is not None)
     if not timestamps:
         return 0.0
 
-    timestamps = sorted(t for t in timestamps if t is not None)
     total_minutes = 0.0
     session_start = timestamps[0]
     last_time = timestamps[0]
 
     for t in timestamps[1:]:
         gap = (t - last_time).total_seconds() / 60
-        if gap > SESSION_GAP_MINUTES:
-            # Kết thúc phiên trước, cộng dồn (tối thiểu MIN_EVENT_MINUTES nếu phiên chỉ có 1 hoạt động)
-            session_length = max((last_time - session_start).total_seconds() / 60, MIN_EVENT_MINUTES)
-            total_minutes += session_length
+        if gap > gap_minutes:
+            total_minutes += max((last_time - session_start).total_seconds() / 60, MIN_EVENT_MINUTES)
             session_start = t
         last_time = t
 
-    # Cộng nốt phiên cuối cùng
-    session_length = max((last_time - session_start).total_seconds() / 60, MIN_EVENT_MINUTES)
-    total_minutes += session_length
+    total_minutes += max((last_time - session_start).total_seconds() / 60, MIN_EVENT_MINUTES)
+    return total_minutes
 
-    return round(total_minutes / 60, 1)
+
+def _estimate_study_hours(db: Session) -> float:
+    """Ước tính tổng thời gian học TÍCH LŨY (mọi thời điểm) dựa trên hoạt động thực tế."""
+    timestamps = [row[0] for row in db.query(models.StudyHistory.timestamp).all()]
+    timestamps += [row[0] for row in db.query(models.ChatMessage.created_at).all()]
+    return round(_sessionize(timestamps) / 60, 1)
+
+
+def _estimate_today_minutes(db: Session) -> int:
+    """Giống _estimate_study_hours nhưng chỉ tính các hoạt động xảy ra TRONG NGÀY HÔM NAY."""
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    timestamps = [
+        row[0] for row in db.query(models.StudyHistory.timestamp)
+        .filter(models.StudyHistory.timestamp >= today_start).all()
+    ]
+    timestamps += [
+        row[0] for row in db.query(models.ChatMessage.created_at)
+        .filter(models.ChatMessage.created_at >= today_start).all()
+    ]
+    return round(_sessionize(timestamps))
+
+
+def _get_continue_learning(db: Session):
+    """Tìm hoạt động luyện tập gần nhất (có gắn topic) để gợi ý 'Tiếp tục học'."""
+    last_attempt = (
+        db.query(models.StudyHistory)
+        .join(models.Question)
+        .filter(models.Question.topic.isnot(None))
+        .order_by(models.StudyHistory.timestamp.desc())
+        .first()
+    )
+    if not last_attempt:
+        return None
+
+    question = last_attempt.question
+    subject = db.query(models.Subject).get(question.subject_id)
+    return {
+        "subject_id": question.subject_id,
+        "subject_name": subject.name if subject else "",
+        "topic": question.topic,
+    }
 
 
 @router.get("/analytics/overview")
@@ -110,6 +139,9 @@ async def analytics_overview(db: Session = Depends(get_db)):
 
     return {
         "total_hours_estimated": total_hours,
+        "today_minutes": _estimate_today_minutes(db),
+        "daily_goal_minutes": DAILY_GOAL_MINUTES,
+        "continue_learning": _get_continue_learning(db),
         "by_subject": by_subject,
         "weakest_point": weakest,
     }
