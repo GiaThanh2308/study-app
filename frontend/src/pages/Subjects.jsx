@@ -580,5 +580,3 @@ const styles = {
     fontSize: 13,
   },
 };
-
-

@@ -495,6 +495,3 @@ const styles = {
     lineHeight: 1.6,
   },
 };
-
-
-

@@ -57,6 +57,3 @@ const styles = {
   barBg: { flex: 1, height: 10, background: "var(--color-border)", borderRadius: 5, overflow: "hidden" },
   barFill: { height: "100%", background: "var(--color-success)" },
 };
-
-
-

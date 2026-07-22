@@ -160,6 +160,3 @@ const styles = {
     marginTop: 12,
   },
 };
-
-
-

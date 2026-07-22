@@ -65,14 +65,15 @@ export default function Chat() {
         if (done) break;
         raw += decoder.decode(value, { stream: true });
 
-        // Tách phần __SOURCES__...__END_SOURCES__ nếu có (chỉ xuất hiện ở đầu, chế độ RAG)
+        // Marker __SOURCES__...__END_SOURCES__ giờ nằm ở CUỐI stream (backend chỉ gửi sau khi
+        // biết chắc AI có thực sự dùng được tài liệu để trả lời hay không) — không còn ở đầu nữa.
         let displayText = raw;
-        const sourceMatch = raw.match(/^__SOURCES__(.*?)__END_SOURCES__/s);
+        const sourceMatch = raw.match(/__SOURCES__(.*?)__END_SOURCES__/s);
         if (sourceMatch) {
           try {
             sources = JSON.parse(sourceMatch[1]);
           } catch {}
-          displayText = raw.replace(/^__SOURCES__.*?__END_SOURCES__/s, "");
+          displayText = raw.replace(/__SOURCES__.*?__END_SOURCES__/s, "");
         }
 
         setMessages((prev) => {

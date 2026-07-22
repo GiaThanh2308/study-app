@@ -249,8 +249,12 @@ async def rag_chat(payload: RagChatRequest, db: Session = Depends(get_db)):
                 })
 
     system_prompt = (
-        "Bạn là trợ lý học tập. Trả lời câu hỏi CHỈ dựa trên các đoạn tài liệu được cung cấp dưới đây. "
-        "Nếu tài liệu không có thông tin liên quan, hãy nói rõ là không tìm thấy trong tài liệu. "
+        "Bạn là trợ lý học tập, trả lời dựa trên các đoạn tài liệu được cung cấp dưới đây. "
+        "Nếu tài liệu có nội dung liên quan đến câu hỏi (dù không phải một câu định nghĩa "
+        "y hệt), hãy TỔNG HỢP và GIẢI THÍCH dựa trên nội dung đó để trả lời đầy đủ nhất có thể — "
+        "không từ chối trả lời chỉ vì tài liệu không có nguyên văn câu trả lời. "
+        "Chỉ nói KHÔNG TÌM THẤY THÔNG TIN LIÊN QUAN nếu tài liệu thực sự không đề cập gì tới "
+        "chủ đề của câu hỏi. Không bịa thông tin ngoài tài liệu. "
         "Trả lời bằng tiếng Việt, ngắn gọn, chính xác.\n\n"
         f"TÀI LIỆU:\n{context_text}"
     )
@@ -260,12 +264,34 @@ async def rag_chat(payload: RagChatRequest, db: Session = Depends(get_db)):
         {"role": "user", "content": payload.message},
     ]
 
+    # Các cụm từ cho biết AI thực sự KHÔNG dùng được tài liệu để trả lời — nếu câu trả lời
+    # cuối cùng chứa 1 trong các cụm này, sẽ ẩn nguồn trích dẫn đi (tránh gây hiểu lầm kiểu
+    # "không trả lời được nhưng vẫn đính kèm cả file lên").
+    NOT_FOUND_PHRASES = [
+        "không tìm thấy thông tin liên quan",
+        "không tìm thấy",
+        "không có thông tin",
+        "không chứa câu trả lời",
+        "không chứa thông tin",
+        "không đề cập",
+        "không thể xác định",
+        "tài liệu không cung cấp",
+    ]
+
     async def event_generator():
-        # Gửi sources trước dưới dạng dòng đặc biệt để frontend tách ra hiển thị
         import json
-        yield f"__SOURCES__{json.dumps(sources, ensure_ascii=False)}__END_SOURCES__"
+        full_response = ""
         async for chunk in chat_stream(messages):
+            full_response += chunk
             yield chunk
+
+        # Chỉ gửi nguồn trích dẫn SAU KHI biết chắc AI có thực sự dùng tài liệu để trả lời không —
+        # gửi ở cuối stream, và bỏ qua hoàn toàn nếu câu trả lời cho thấy AI "bó tay".
+        answer_lower = full_response.lower()
+        actually_answered = not any(phrase in answer_lower for phrase in NOT_FOUND_PHRASES)
+
+        if sources and actually_answered:
+            yield f"__SOURCES__{json.dumps(sources, ensure_ascii=False)}__END_SOURCES__"
 
     return StreamingResponse(event_generator(), media_type="text/plain")
 
