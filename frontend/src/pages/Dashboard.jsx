@@ -19,10 +19,31 @@ function pad(n) {
   return String(n).padStart(2, "0");
 }
 
+// Đọc/khởi tạo mốc bắt đầu phiên học từ sessionStorage.
+// Lý do: nếu để useState(() => new Date()) như trước, mỗi lần rời trang
+// Dashboard rồi quay lại, component bị unmount/mount lại từ đầu và mốc
+// thời gian bị tạo mới → đồng hồ "Thời gian học phiên này" nhảy về 00:00:00.
+// Lưu vào sessionStorage giúp mốc này giữ nguyên trong suốt phiên trình
+// duyệt (chỉ mất khi đóng tab/đóng app), bất kể chuyển qua lại giữa các mục.
+function getSessionStart() {
+  const saved = sessionStorage.getItem("studyapp_session_start");
+  if (saved) return new Date(saved);
+  const now = new Date();
+  sessionStorage.setItem("studyapp_session_start", now.toISOString());
+  return now;
+}
+
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [now, setNow] = useState(new Date());
-  const [sessionStart] = useState(() => new Date());
+  const [sessionStart] = useState(getSessionStart);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState("");
+  // Mục tiêu tuỳ chỉnh lưu ở máy học sinh (backend hiện chưa có API riêng cho việc này)
+  const [customGoal, setCustomGoal] = useState(() => {
+    const saved = localStorage.getItem("studyapp_daily_goal_minutes");
+    return saved ? Number(saved) : null;
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,6 +54,15 @@ export default function Dashboard() {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+
+  const saveGoal = () => {
+    const n = Number(goalInput);
+    if (n > 0) {
+      setCustomGoal(n);
+      localStorage.setItem("studyapp_daily_goal_minutes", String(n));
+    }
+    setEditingGoal(false);
+  };
 
   const sessionMs = now - sessionStart;
   const sessionH = Math.floor(sessionMs / 3600000);
@@ -118,15 +148,41 @@ export default function Dashboard() {
           <div style={styles.goalWrap}>
             <div style={styles.goalLabelRow}>
               <span>Mục tiêu hôm nay</span>
-              <span>
-                {data.today_minutes}/{data.daily_goal_minutes} phút
-              </span>
+              {editingGoal ? (
+                <span style={styles.goalEditRow}>
+                  <input
+                    autoFocus
+                    type="number"
+                    min="1"
+                    value={goalInput}
+                    onChange={(e) => setGoalInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && saveGoal()}
+                    onBlur={saveGoal}
+                    style={styles.goalInput}
+                  />
+                  <span>phút</span>
+                </span>
+              ) : (
+                <span
+                  style={styles.goalValueBtn}
+                  onClick={() => {
+                    setGoalInput(String(customGoal ?? data.daily_goal_minutes));
+                    setEditingGoal(true);
+                  }}
+                  title="Bấm để chỉnh mục tiêu"
+                >
+                  {data.today_minutes}/{customGoal ?? data.daily_goal_minutes} phút ✎
+                </span>
+              )}
             </div>
             <div style={styles.goalBarBg}>
               <div
                 style={{
                   ...styles.goalBarFill,
-                  width: `${Math.min(100, (data.today_minutes / data.daily_goal_minutes) * 100)}%`,
+                  width: `${Math.min(
+                    100,
+                    (data.today_minutes / (customGoal ?? data.daily_goal_minutes)) * 100
+                  )}%`,
                 }}
               />
             </div>
@@ -138,14 +194,33 @@ export default function Dashboard() {
       <div style={styles.sectionCard}>
         <h3 style={styles.sectionTitle}>Theo môn học</h3>
         {data.by_subject.length === 0 && (
-          <p style={styles.emptyText}>Chưa có môn học nào — vào "Môn học" để bắt đầu.</p>
+          <button style={styles.chartEmptyState} onClick={() => navigate("/subjects")}>
+            <div style={{ fontSize: 30, marginBottom: 8 }}>📊</div>
+            <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>
+              Chưa có dữ liệu học tập
+            </div>
+            <div style={{ fontSize: 13, color: "var(--color-text-muted)" }}>
+              Bấm vào đây để thêm môn học đầu tiên và bắt đầu luyện tập →
+            </div>
+          </button>
         )}
         {data.by_subject.length > 0 && (
           <div style={styles.barChartRow}>
             {data.by_subject.map((s) => {
               const pct = s.percent_correct ?? 0;
+              const noData = s.percent_correct === null;
+              const Wrapper = noData ? "button" : "div";
               return (
-                <div key={s.subject_id} style={styles.barChartCol}>
+                <Wrapper
+                  key={s.subject_id}
+                  style={{ ...styles.barChartCol, ...(noData ? styles.barChartColClickable : {}) }}
+                  onClick={
+                    noData
+                      ? () => navigate(`/practice?tab=tutor&topic=${encodeURIComponent(s.subject_name)}`)
+                      : undefined
+                  }
+                  title={noData ? `Bấm để luyện tập ${s.subject_name} ngay` : undefined}
+                >
                   <div style={styles.barChartValue}>
                     {s.percent_correct !== null ? `${s.percent_correct}%` : "—"}
                   </div>
@@ -154,15 +229,15 @@ export default function Dashboard() {
                       style={{
                         ...styles.barChartBar,
                         height: `${Math.max(pct, 3)}%`,
-                        background:
-                          s.percent_correct === null
-                            ? "var(--color-border)"
-                            : "linear-gradient(180deg, #4f6ef7, #0d9488)",
+                        background: noData
+                          ? "var(--color-border)"
+                          : "linear-gradient(180deg, #4f6ef7, #0d9488)",
                       }}
                     />
                   </div>
                   <div style={styles.barChartLabel}>{s.subject_name}</div>
-                </div>
+                  {noData && <div style={styles.barChartHint}>Luyện ngay →</div>}
+                </Wrapper>
               );
             })}
           </div>
@@ -209,9 +284,9 @@ const styles = {
     padding: "28px 32px 48px",
     maxWidth: 1040,
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    color: "#1e2433",
+    color: "var(--color-text)",
   },
-  loading: { padding: 24, color: "#8892a6" },
+  loading: { padding: 24, color: "var(--color-text-muted)" },
   header: { marginBottom: 24 },
 
   continueCard: {
@@ -249,9 +324,24 @@ const styles = {
   goalLabelRow: {
     display: "flex",
     justifyContent: "space-between",
+    alignItems: "center",
     fontSize: 11.5,
     opacity: 0.85,
     marginBottom: 5,
+  },
+  goalValueBtn: {
+    cursor: "pointer",
+    borderBottom: "1px dashed rgba(255,255,255,0.6)",
+  },
+  goalEditRow: { display: "flex", alignItems: "center", gap: 5 },
+  goalInput: {
+    width: 46,
+    padding: "2px 6px",
+    borderRadius: 6,
+    border: "1px solid rgba(255,255,255,0.4)",
+    background: "rgba(255,255,255,0.15)",
+    color: "#fff",
+    fontSize: 12,
   },
   goalBarBg: {
     height: 6,
@@ -274,6 +364,17 @@ const styles = {
     alignItems: "center",
     flex: 1,
     height: "100%",
+    border: "none",
+    background: "transparent",
+    padding: 0,
+    font: "inherit",
+  },
+  barChartColClickable: { cursor: "pointer" },
+  barChartHint: {
+    fontSize: 10.5,
+    color: "var(--color-primary)",
+    fontWeight: 600,
+    marginTop: 3,
   },
   barChartValue: { fontSize: 12, fontWeight: 700, marginBottom: 6, color: "var(--color-text)" },
   barChartTrack: {
@@ -289,7 +390,7 @@ const styles = {
   barChartLabel: { fontSize: 12, color: "var(--color-text-muted)", marginTop: 8, fontWeight: 600 },
   eyebrow: {
     fontSize: 13,
-    color: "#8892a6",
+    color: "var(--color-text-muted)",
     textTransform: "capitalize",
     marginBottom: 4,
   },
@@ -355,12 +456,23 @@ const styles = {
     boxShadow: "0 1px 2px rgba(30,36,51,0.04)",
   },
   sectionTitle: { fontSize: 15, fontWeight: 700, margin: "0 0 14px" },
-  emptyText: { color: "#8892a6", fontSize: 14 },
+  emptyText: { color: "var(--color-text-muted)", fontSize: 14 },
+  chartEmptyState: {
+    width: "100%",
+    textAlign: "center",
+    padding: "36px 20px",
+    background: "var(--color-bg)",
+    border: "1px dashed var(--color-border)",
+    borderRadius: 12,
+    cursor: "pointer",
+    font: "inherit",
+    color: "var(--color-text)",
+  },
   subjectRow: { display: "flex", alignItems: "center", gap: 14, marginBottom: 12 },
   subjectName: { width: 110, fontSize: 14, fontWeight: 600 },
   barBg: { flex: 1, height: 8, background: "#eceef2", borderRadius: 4, overflow: "hidden" },
   barFill: { height: "100%", background: "#0d9488", borderRadius: 4 },
-  subjectPercent: { width: 66, textAlign: "right", fontSize: 13, color: "#4b5566" },
+  subjectPercent: { width: 66, textAlign: "right", fontSize: 13, color: "var(--color-text-muted)" },
 
   weakBox: {
     border: "1px solid #fde3b0",
@@ -371,15 +483,18 @@ const styles = {
   },
   weakTitle: { margin: "0 0 8px", fontSize: 14.5, fontWeight: 700 },
   weakTopic: { fontSize: 19, fontWeight: 700, margin: "0 0 6px" },
-  weakSubject: { fontSize: 13, fontWeight: 500, color: "#8892a6" },
-  weakPercent: { color: "#c05621", margin: "0 0 8px", fontSize: 14 },
-  weakVideo: { color: "#2b6cb0", margin: "0 0 8px", fontSize: 13.5 },
-  weakHint: { fontSize: 12.5, color: "#8892a6", margin: 0 },
+  weakSubject: { fontSize: 13, fontWeight: 500, color: "var(--color-text-muted)" },
+  weakPercent: { color: "var(--color-warning)", margin: "0 0 8px", fontSize: 14 },
+  weakVideo: { color: "var(--color-primary-dark)", margin: "0 0 8px", fontSize: 13.5 },
+  weakHint: { fontSize: 12.5, color: "var(--color-text-muted)", margin: 0 },
 
   emptyWeakBox: {
     fontSize: 13,
-    color: "#8892a6",
+    color: "var(--color-text-muted)",
     maxWidth: 560,
     lineHeight: 1.6,
   },
 };
+
+
+

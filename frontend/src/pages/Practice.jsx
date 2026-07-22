@@ -531,6 +531,8 @@ function ExamTab({ subjects }) {
 }
 
 function StepField({ stepNumber, icon, label, sublabel, value, onChange }) {
+  const dec = () => onChange(Math.max(1, Number(value) - 1));
+  const inc = () => onChange(Math.min(30, Number(value) + 1));
   return (
     <div style={styles.stepBlock}>
       <div style={styles.stepBadge}>{stepNumber}</div>
@@ -540,14 +542,34 @@ function StepField({ stepNumber, icon, label, sublabel, value, onChange }) {
         </div>
         <div style={{ fontSize: 11.5, color: "var(--color-text-muted)", marginTop: 1 }}>{sublabel}</div>
       </div>
-      <input
-        type="number"
-        min={1}
-        max={30}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={styles.stepInput}
-      />
+      <div style={styles.stepperGroup}>
+        <button
+          type="button"
+          style={styles.stepperBtn}
+          onClick={dec}
+          disabled={value <= 1}
+          aria-label="Giảm số câu"
+        >
+          −
+        </button>
+        <input
+          type="number"
+          min={1}
+          max={30}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={styles.stepInput}
+        />
+        <button
+          type="button"
+          style={styles.stepperBtn}
+          onClick={inc}
+          disabled={value >= 30}
+          aria-label="Tăng số câu"
+        >
+          +
+        </button>
+      </div>
       <span style={{ fontSize: 12, color: "var(--color-text-muted)" }}>câu</span>
     </div>
   );
@@ -942,13 +964,36 @@ const styles = {
     justifyContent: "center",
     flexShrink: 0,
   },
-  stepInput: {
-    width: 52,
-    padding: "6px 8px",
-    borderRadius: 8,
+  stepperGroup: {
+    display: "flex",
+    alignItems: "center",
     border: "1px solid var(--color-border)",
+    borderRadius: 8,
+    overflow: "hidden",
+    background: "var(--color-surface)",
+  },
+  stepperBtn: {
+    width: 26,
+    height: 30,
+    border: "none",
+    background: "var(--color-surface)",
+    color: "var(--color-primary)",
+    fontSize: 16,
+    fontWeight: 700,
+    cursor: "pointer",
+    lineHeight: 1,
+  },
+  stepInput: {
+    width: 40,
+    padding: "6px 4px",
+    border: "none",
+    borderLeft: "1px solid var(--color-border)",
+    borderRight: "1px solid var(--color-border)",
     textAlign: "center",
     fontSize: 14,
+    fontWeight: 600,
+    background: "transparent",
+    color: "var(--color-text)",
   },
   segmentBtn: {
     padding: "8px 20px",
@@ -1151,3 +1196,6 @@ const styles = {
     fontSize: 13,
   },
 };
+
+
+

@@ -342,12 +342,12 @@ const styles = {
     height: "100vh",
     boxSizing: "border-box",
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    color: "#1e2433",
-    background: "#f7f8fc",
+    color: "var(--color-text)",
+    background: "var(--color-bg)",
   },
   topBar: {
     padding: "24px 32px 16px",
-    borderBottom: "1px solid #eceef2",
+    borderBottom: "1px solid var(--color-border)",
     background: "var(--color-surface)",
   },
   title: { fontSize: 24, fontWeight: 700, margin: "0 0 14px", letterSpacing: "-0.02em" },
@@ -450,8 +450,8 @@ const styles = {
   },
   bubbleAi: {
     background: "var(--color-surface)",
-    border: "1px solid #eceef2",
-    color: "#1e2433",
+    border: "1px solid var(--color-border)",
+    color: "var(--color-text)",
     borderBottomLeftRadius: 4,
     boxShadow: "0 1px 2px rgba(30,36,51,0.04)",
   },
@@ -466,8 +466,8 @@ const styles = {
     animation: "studyapp-typing 1s infinite ease-in-out",
   },
 
-  sourceBox: { marginTop: 10, paddingTop: 10, borderTop: "1px solid #eceef2" },
-  sourceLabel: { fontSize: 11.5, fontWeight: 700, color: "#8892a6", marginBottom: 6 },
+  sourceBox: { marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--color-border)" },
+  sourceLabel: { fontSize: 11.5, fontWeight: 700, color: "var(--color-text-muted)", marginBottom: 6 },
   sourceTagRow: { display: "flex", flexWrap: "wrap", gap: 6 },
   sourceTag: {
     background: "#eef6ff",

@@ -179,7 +179,7 @@ export default function Subjects() {
               onClick={() => box.data && setSelectedSubjectId(isSelected ? null : box.data.id)}
               style={{
                 ...styles.subjectBox,
-                borderColor: isSelected ? box.color : "#eceef2",
+                borderColor: isSelected ? box.color : "var(--color-border)",
                 boxShadow: isSelected
                   ? `0 0 0 3px ${box.bg}, 0 8px 20px -10px rgba(30,36,51,0.25)`
                   : "0 1px 2px rgba(30,36,51,0.04)",
@@ -203,6 +203,21 @@ export default function Subjects() {
         <div style={styles.detailCard}>
           <div style={styles.detailHeader}>
             <h3 style={styles.detailTitle}>{selectedSubject.name}</h3>
+          </div>
+
+          <div style={styles.addChapterBar}>
+            <input
+              placeholder="+ Tên chương mới..."
+              value={newChapterName[selectedSubject.id] || ""}
+              onChange={(e) =>
+                setNewChapterName({ ...newChapterName, [selectedSubject.id]: e.target.value })
+              }
+              onKeyDown={(e) => e.key === "Enter" && addChapter(selectedSubject.id)}
+              style={styles.addChapterInput}
+            />
+            <button onClick={() => addChapter(selectedSubject.id)} style={styles.primaryBtn}>
+              + Thêm chương
+            </button>
           </div>
 
           {selectedSubject.chapters.map((chapter) => {
@@ -353,21 +368,6 @@ export default function Subjects() {
               </div>
             );
           })}
-
-          <div style={styles.inlineAddRow}>
-            <input
-              placeholder="Tên chương mới"
-              value={newChapterName[selectedSubject.id] || ""}
-              onChange={(e) =>
-                setNewChapterName({ ...newChapterName, [selectedSubject.id]: e.target.value })
-              }
-              onKeyDown={(e) => e.key === "Enter" && addChapter(selectedSubject.id)}
-              style={styles.inputSmall}
-            />
-            <button onClick={() => addChapter(selectedSubject.id)} style={styles.primaryBtn}>
-              + Thêm chương
-            </button>
-          </div>
         </div>
       )}
     </div>
@@ -379,11 +379,11 @@ const styles = {
     padding: "28px 32px 48px",
     maxWidth: 1040,
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    color: "#1e2433",
+    color: "var(--color-text)",
   },
-  loading: { padding: 24, color: "#8892a6" },
+  loading: { padding: 24, color: "var(--color-text-muted)" },
   header: { marginBottom: 20 },
-  eyebrow: { fontSize: 13, color: "#8892a6", marginBottom: 4 },
+  eyebrow: { fontSize: 13, color: "var(--color-text-muted)", marginBottom: 4 },
   title: { fontSize: 28, fontWeight: 700, margin: 0, letterSpacing: "-0.02em" },
 
   subjectGrid: {
@@ -398,7 +398,7 @@ const styles = {
     alignItems: "flex-start",
     gap: 10,
     background: "var(--color-surface)",
-    border: "2px solid #eceef2",
+    border: "2px solid var(--color-border)",
     borderRadius: 16,
     padding: "18px 20px",
     cursor: "pointer",
@@ -417,30 +417,49 @@ const styles = {
     fontSize: 19,
   },
   subjectBoxName: { fontSize: 17, fontWeight: 700 },
-  subjectBoxMeta: { fontSize: 12.5, color: "#8892a6", fontWeight: 500 },
+  subjectBoxMeta: { fontSize: 12.5, color: "var(--color-text-muted)", fontWeight: 500 },
 
   hintBox: {
     textAlign: "center",
     padding: "40px 24px",
     background: "var(--color-surface)",
-    border: "1px dashed #dde1e8",
+    border: "1px dashed var(--color-border)",
     borderRadius: 14,
-    color: "#8892a6",
+    color: "var(--color-text-muted)",
     fontSize: 14,
   },
 
   detailCard: {
     background: "var(--color-surface)",
-    border: "1px solid #eceef2",
+    border: "1px solid var(--color-border)",
     borderRadius: 16,
     padding: 22,
     boxShadow: "0 1px 2px rgba(30,36,51,0.04)",
   },
   detailHeader: { marginBottom: 14 },
   detailTitle: { fontSize: 18, fontWeight: 700, margin: 0 },
+  addChapterBar: {
+    display: "flex",
+    gap: 8,
+    marginBottom: 16,
+    padding: 10,
+    background: "var(--color-bg)",
+    border: "1px dashed var(--color-border)",
+    borderRadius: 10,
+  },
+  addChapterInput: {
+    flex: 1,
+    padding: "9px 12px",
+    border: "1px solid var(--color-border)",
+    borderRadius: 8,
+    fontSize: 13.5,
+    outline: "none",
+    background: "var(--color-surface)",
+    color: "var(--color-text)",
+  },
 
   chapterCard: {
-    background: "#f8f9fb",
+    background: "var(--color-bg)",
     borderRadius: 12,
     padding: "12px 14px",
     marginTop: 10,
@@ -455,23 +474,23 @@ const styles = {
   chevron: {
     display: "inline-block",
     fontSize: 18,
-    color: "#8892a6",
+    color: "var(--color-text-muted)",
     transition: "transform 0.15s ease",
     width: 12,
   },
   chapterName: { fontWeight: 600, fontSize: 14.5, flex: 1 },
-  chapterCount: { fontSize: 12, color: "#8892a6" },
+  chapterCount: { fontSize: 12, color: "var(--color-text-muted)" },
 
   lessonList: { marginTop: 10, display: "flex", flexDirection: "column", gap: 8 },
   lessonCard: {
     background: "var(--color-surface)",
-    border: "1px solid #eceef2",
+    border: "1px solid var(--color-border)",
     borderRadius: 10,
     padding: 14,
   },
   lessonHeader: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 },
   lessonTitle: { fontWeight: 600, fontSize: 14 },
-  lessonMeta: { fontSize: 12, color: "#8892a6" },
+  lessonMeta: { fontSize: 12, color: "var(--color-text-muted)" },
 
   fileBlock: { marginBottom: 6 },
   fileRow: {
@@ -509,7 +528,7 @@ const styles = {
   progressBarBg: {
     width: "100%",
     height: 6,
-    background: "#eceef2",
+    background: "var(--color-border)",
     borderRadius: 3,
     overflow: "hidden",
   },
@@ -518,14 +537,14 @@ const styles = {
     background: "linear-gradient(90deg, #0d9488, #14b8a6)",
     transition: "width 0.3s ease",
   },
-  progressText: { fontSize: 11, color: "#8892a6", marginTop: 3 },
+  progressText: { fontSize: 11, color: "var(--color-text-muted)", marginTop: 3 },
 
   uploadRow: { display: "flex", gap: 8, marginTop: 8 },
   uploadLabel: {
     fontSize: 12,
     padding: "6px 12px",
-    background: "#f1f2f6",
-    color: "#4b5566",
+    background: "var(--color-bg)",
+    color: "var(--color-text-muted)",
     borderRadius: 8,
     cursor: "pointer",
     fontWeight: 600,
@@ -535,7 +554,7 @@ const styles = {
   inputSmall: {
     flex: 1,
     padding: "9px 12px",
-    border: "1px solid #dde1e8",
+    border: "1px solid var(--color-border)",
     borderRadius: 8,
     fontSize: 13.5,
     outline: "none",
@@ -561,3 +580,5 @@ const styles = {
     fontSize: 13,
   },
 };
+
+

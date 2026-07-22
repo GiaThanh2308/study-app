@@ -16,7 +16,7 @@ export default function Stats() {
 
       <div style={styles.overviewBox}>
         <div style={styles.statNumber}>{stats.total_attempts}</div>
-        <div style={{ color: "#718096" }}>lượt làm bài</div>
+        <div style={{ color: "var(--color-text-muted)" }}>lượt làm bài</div>
         {stats.overall_percent !== null && (
           <div style={{ marginTop: 8, fontSize: 16 }}>
             Tỉ lệ đúng tổng thể: <b>{stats.overall_percent}%</b>
@@ -57,3 +57,6 @@ const styles = {
   barBg: { flex: 1, height: 10, background: "var(--color-border)", borderRadius: 5, overflow: "hidden" },
   barFill: { height: "100%", background: "var(--color-success)" },
 };
+
+
+
