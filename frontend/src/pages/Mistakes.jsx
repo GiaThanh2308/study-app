@@ -1,178 +1,281 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import api from "../api";
+import { useNavigate } from "react-router-dom";
+import MathView from "../components/MathView";
 
 export default function Mistakes() {
-  const [subjects, setSubjects] = useState([]);
-  const [subjectId, setSubjectId] = useState("");
   const [mistakes, setMistakes] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [subjects, setSubjects] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     api.get("/subjects").then((res) => setSubjects(res.data));
-    load();
+    loadMistakes();
   }, []);
 
-  const load = async (sid = "") => {
+  const loadMistakes = (subjectId = null) => {
     setLoading(true);
-    const url = sid ? `/practice/mistakes?subject_id=${sid}` : "/practice/mistakes";
-    const res = await api.get(url);
-    setMistakes(res.data);
-    setLoading(false);
+    const url = subjectId ? `/stats/mistakes?subject_id=${subjectId}` : "/stats/mistakes";
+    api.get(url)
+      .then((res) => setMistakes(res.data))
+      .catch((err) => console.error("Lỗi tải sổ lỗi sai:", err))
+      .finally(() => setLoading(false));
   };
 
-  const onSubjectChange = (sid) => {
-    setSubjectId(sid);
-    load(sid);
-  };
-
-  const subjectName = (id) => subjects.find((s) => s.id === id)?.name || "";
-
-  const retryTopic = (topic) => {
-    navigate(`/practice?tab=tutor&topic=${encodeURIComponent(topic)}`);
+  const handleFilter = (subjectId) => {
+    setSelectedSubject(subjectId);
+    loadMistakes(subjectId);
   };
 
   return (
-    <div className="page">
-      <h2>Sổ lỗi sai</h2>
-      <p style={{ color: "var(--color-text-muted)", fontSize: 13 }}>
-        Các câu hỏi mà lần làm gần nhất bị sai. Làm lại đúng trong "Luyện tập" sẽ tự động biến mất khỏi danh sách này.
-      </p>
-
-      <div style={styles.chipRow}>
+    <div style={{ padding: 24, maxWidth: 1000, margin: "0 auto" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h2 style={{ margin: "0 0 4px" }}>❌ Sổ Lỗi Sai (Mistake Log)</h2>
+          <div style={{ color: "#718096", fontSize: 14 }}>
+            Tổng hợp toàn bộ câu hỏi bạn đã làm sai để ôn tập lại kiến thức trọng tâm
+          </div>
+        </div>
         <button
-          style={{ ...styles.chip, ...(subjectId === "" ? styles.chipActive : {}) }}
-          onClick={() => onSubjectChange("")}
+          onClick={() => navigate("/exams")}
+          style={styles.primaryBtn}
         >
-          Tất cả môn học
+          📝 Làm đề luyện tập
+        </button>
+      </div>
+
+      {/* Bộ lọc môn học */}
+      <div style={styles.filterRow}>
+        <button
+          onClick={() => handleFilter(null)}
+          style={{
+            ...styles.filterBtn,
+            background: selectedSubject === null ? "#3182ce" : "#edf2f7",
+            color: selectedSubject === null ? "#fff" : "#2d3748",
+          }}
+        >
+          Tất cả môn ({mistakes.length})
         </button>
         {subjects.map((s) => (
           <button
             key={s.id}
-            style={{ ...styles.chip, ...(subjectId === String(s.id) ? styles.chipActive : {}) }}
-            onClick={() => onSubjectChange(String(s.id))}
+            onClick={() => handleFilter(s.id)}
+            style={{
+              ...styles.filterBtn,
+              background: selectedSubject === s.id ? "#3182ce" : "#edf2f7",
+              color: selectedSubject === s.id ? "#fff" : "#2d3748",
+            }}
           >
             {s.name}
           </button>
         ))}
       </div>
 
-      {loading && <p>Đang tải...</p>}
-
-      {!loading && mistakes.length === 0 && (
-        <div style={styles.emptyState}>
-          <svg width="120" height="120" viewBox="0 0 120 120" style={{ marginBottom: 8 }}>
-            <circle cx="60" cy="60" r="56" fill="var(--color-success-light)" />
-            <path d="M60 26c-14 0-22 8-22 8v14c0 12 9 22 22 26 13-4 22-14 22-26V34s-8-8-22-8z"
-                  fill="var(--color-success)" opacity="0.15" />
-            <path d="M44 40h32v10a16 16 0 0 1-32 0V40z" fill="var(--color-success)" />
-            <rect x="56" y="60" width="8" height="14" fill="var(--color-success)" />
-            <rect x="46" y="74" width="28" height="7" rx="3" fill="var(--color-success)" />
-            <path d="M44 42h-8a8 8 0 0 0 8 8" stroke="var(--color-success)" strokeWidth="3" fill="none" />
-            <path d="M76 42h8a8 8 0 0 1-8 8" stroke="var(--color-success)" strokeWidth="3" fill="none" />
-            <circle cx="60" cy="50" r="3.5" fill="#fff" />
-          </svg>
-          <div style={{ fontWeight: 700, fontSize: 17 }}>Không có lỗi sai nào!</div>
-          <div style={{ fontSize: 13.5, color: "var(--color-text-muted)", marginTop: 4 }}>
-            Bạn đang học rất tốt — tiếp tục phát huy nhé! 🎉
-          </div>
+      {loading ? (
+        <div style={{ padding: 40, textAlign: "center", color: "#718096" }}>Đang tải dữ liệu lỗi sai...</div>
+      ) : mistakes.length === 0 ? (
+        <div style={styles.emptyBox}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+          <h3>Không có lỗi sai nào!</h3>
+          <p style={{ color: "#718096" }}>
+            {selectedSubject ? "Bạn chưa làm sai câu nào ở môn học này." : "Bạn chưa làm sai câu nào hoặc chưa hoàn thành bài thi nào."}
+          </p>
+          <button onClick={() => navigate("/exams")} style={styles.primaryBtn}>
+            Vào phòng thi làm bài ngay
+          </button>
         </div>
-      )}
+      ) : (
+        <div style={{ marginTop: 16 }}>
+          {mistakes.map((m, idx) => (
+            <div key={m.answer_id || idx} style={styles.card}>
+              <div style={styles.cardHeader}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={styles.subjectBadge}>📘 {m.subject_name || "Môn học"}</span>
+                  <span style={styles.examTitle}>Đề: {m.exam_title}</span>
+                  {m.topic_tag && <span style={styles.tagBadge}>🏷️ {m.topic_tag}</span>}
+                </div>
+                <button
+                  onClick={() => navigate("/chat")}
+                  style={styles.askAiBtn}
+                  title="Nhờ AI giải thích chi tiết câu này"
+                >
+                  💬 Hỏi AI câu này
+                </button>
+              </div>
 
-      {mistakes.map((q) => (
-        <div key={q.id} style={styles.card}>
-          <div style={styles.cardHeader}>
-            {subjectName(q.subject_id) && (
-              <span style={styles.subjectTag}>{subjectName(q.subject_id)}</span>
-            )}
-          </div>
-          <p style={{ fontWeight: 600, margin: "6px 0" }}>{q.content}</p>
-          {q.answers.map((a) => (
-            <div
-              key={a.id}
-              style={{
-                ...styles.answerRow,
-                background: a.is_correct ? "var(--color-success-light)" : "var(--color-surface)",
-              }}
-            >
-              {a.content} {a.is_correct && "✓ (đáp án đúng)"}
+              {/* Nội dung câu hỏi */}
+              <div style={styles.questionText}>
+                <b>Câu {m.question_number}:</b> <MathView text={m.question_text} />
+              </div>
+
+              {/* Các phương án lựa chọn (Phần I hoặc II/III) */}
+              {m.option_a || m.option_b ? (
+                <div style={styles.optionsGrid}>
+                  {["A", "B", "C", "D"].map((opt) => {
+                    const optText = m[`option_${opt.toLowerCase()}`];
+                    if (!optText) return null;
+                    const isSelected = m.selected_answer === opt;
+                    const isCorrect = m.correct_answer === opt;
+
+                    let border = "#e2e8f0";
+                    let bg = "#fff";
+                    if (isSelected && !isCorrect) {
+                      border = "#f56565";
+                      bg = "#fff5f5";
+                    } else if (isCorrect) {
+                      border = "#48bb78";
+                      bg = "#f0fff4";
+                    }
+
+                    return (
+                      <div key={opt} style={{ ...styles.optionItem, borderColor: border, background: bg }}>
+                        <span style={{ fontWeight: 700, width: 24 }}>{opt}.</span>
+                        <span style={{ flex: 1 }}>
+                          <MathView text={optText} />
+                        </span>
+                        {isSelected && !isCorrect && (
+                          <span style={{ color: "#e53e3e", fontWeight: 700, fontSize: 13 }}>❌ Bạn đã chọn</span>
+                        )}
+                        {isCorrect && (
+                          <span style={{ color: "#38a169", fontWeight: 700, fontSize: 13 }}>✅ Đáp án đúng</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: 8, marginBottom: 12, border: "1px solid #e2e8f0" }}>
+                  <div style={{ color: "#dc2626", marginBottom: 4 }}>
+                    ❌ <b>Bạn đã điền:</b> {m.selected_answer || "Chưa điền đáp án"}
+                  </div>
+                  <div style={{ color: "#16a34a", fontWeight: 700 }}>
+                    ✅ <b>Đáp án chuẩn:</b> {m.correct_answer}
+                  </div>
+                </div>
+              )}
+
+              {/* Lời giải chi tiết */}
+              {m.explanation && (
+                <div style={styles.explanationBox}>
+                  <b>💡 Lời giải / Phân tích chi tiết:</b>
+                  <div style={{ marginTop: 4, color: "#4a5568", lineHeight: 1.5 }}>
+                    <MathView text={m.explanation} />
+                  </div>
+                </div>
+              )}
             </div>
           ))}
-          {q.explanation && <p style={styles.explanation}>💡 {q.explanation}</p>}
-
-          {q.topic && (
-            <button style={styles.retryBtn} onClick={() => retryTopic(q.topic)}>
-              🔁 Làm lại ngay (chủ đề: {q.topic})
-            </button>
-          )}
         </div>
-      ))}
+      )}
     </div>
   );
 }
 
 const styles = {
-  chipRow: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 },
-  chip: {
-    padding: "7px 16px",
-    borderRadius: 20,
-    border: "1px solid var(--color-border)",
-    background: "var(--color-surface)",
-    color: "var(--color-text-muted)",
-    fontSize: 13.5,
-    fontWeight: 500,
-    cursor: "pointer",
-  },
-  chipActive: {
-    background: "var(--color-primary)",
+  primaryBtn: {
+    padding: "9px 18px",
+    background: "#3182ce",
     color: "#fff",
-    border: "1px solid var(--color-primary)",
-  },
-  card: {
-    border: "1px solid #fed7d7",
-    background: "var(--color-surface)",
-    borderRadius: "var(--radius)",
-    boxShadow: "var(--shadow-sm)",
-    borderLeft: "4px solid var(--color-danger)",
-    padding: 18,
-    marginBottom: 14,
-    maxWidth: 650,
-  },
-  cardHeader: { display: "flex", gap: 8 },
-  subjectTag: {
-    fontSize: 11,
-    fontWeight: 600,
-    padding: "2px 10px",
-    borderRadius: 12,
-    background: "var(--color-primary-light)",
-    color: "var(--color-primary)",
-  },
-  retryBtn: {
-    marginTop: 10,
-    padding: "8px 14px",
+    border: "none",
     borderRadius: 8,
-    border: "1px solid var(--color-primary)",
-    background: "transparent",
-    color: "var(--color-primary)",
-    fontSize: 13,
-    fontWeight: 500,
     cursor: "pointer",
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "50px 20px",
-    background: "var(--color-surface)",
-    borderRadius: "var(--radius)",
-    border: "1px solid var(--color-border)",
-    maxWidth: 400,
-  },
-  answerRow: {
-    padding: "8px 12px",
-    border: "1px solid var(--color-border)",
-    borderRadius: 8,
-    marginBottom: 5,
+    fontWeight: 600,
     fontSize: 14,
   },
-  explanation: { fontSize: 13, color: "var(--color-text-muted)", marginTop: 8 },
+  filterRow: {
+    display: "flex",
+    gap: 8,
+    margin: "18px 0 10px",
+    flexWrap: "wrap",
+  },
+  filterBtn: {
+    padding: "6px 14px",
+    border: "none",
+    borderRadius: 20,
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 600,
+  },
+  emptyBox: {
+    background: "#fff",
+    border: "1px dashed #cbd5e0",
+    borderRadius: 12,
+    padding: 48,
+    textAlign: "center",
+    marginTop: 24,
+  },
+  card: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 8,
+    padding: 18,
+    marginBottom: 16,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+  },
+  cardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottom: "1px solid #edf2f7",
+  },
+  subjectBadge: {
+    background: "#ebf8ff",
+    color: "#2b6cb0",
+    padding: "2px 8px",
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: 700,
+  },
+  examTitle: {
+    color: "#718096",
+    fontSize: 13,
+  },
+  tagBadge: {
+    background: "#edf2f7",
+    color: "#4a5568",
+    padding: "2px 8px",
+    borderRadius: 4,
+    fontSize: 12,
+  },
+  askAiBtn: {
+    padding: "4px 10px",
+    background: "#edf2f7",
+    border: "1px solid #cbd5e0",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 12,
+    fontWeight: 600,
+    color: "#2b6cb0",
+  },
+  questionText: {
+    fontSize: 15,
+    color: "#2d3748",
+    lineHeight: 1.5,
+    marginBottom: 12,
+  },
+  optionsGrid: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    marginBottom: 12,
+  },
+  optionItem: {
+    display: "flex",
+    alignItems: "center",
+    padding: "8px 12px",
+    borderRadius: 6,
+    border: "1px solid",
+    fontSize: 14,
+  },
+  explanationBox: {
+    background: "#fffaf0",
+    borderLeft: "4px solid #dd6b20",
+    borderRadius: 4,
+    padding: "10px 14px",
+    fontSize: 14,
+  },
 };

@@ -3,6 +3,8 @@ from typing import Optional, List
 from datetime import datetime
 
 
+# ===================== MÔN / CHƯƠNG / BÀI =====================
+
 class SubjectCreate(BaseModel):
     name: str
     icon: Optional[str] = None
@@ -41,7 +43,6 @@ class VideoOut(BaseModel):
     file_path: str
     original_filename: Optional[str]
     status: str
-    rag_status: str
     created_at: Optional[datetime]
     model_config = {"from_attributes": True}
 
@@ -53,7 +54,6 @@ class DocumentOut(BaseModel):
     doc_type: str
     file_path: str
     original_filename: Optional[str]
-    rag_status: str
     created_at: Optional[datetime]
     model_config = {"from_attributes": True}
 
@@ -71,122 +71,139 @@ class SubjectTree(SubjectOut):
     chapters: List[ChapterTree] = []
 
 
-# ---------- Luyện tập / Quiz ----------
-class AnswerCreate(BaseModel):
-    content: str
-    is_correct: bool = False
-
-
-class AnswerOut(AnswerCreate):
-    id: int
-    model_config = {"from_attributes": True}
-
+# ===================== ĐỀ THI =====================
 
 class QuestionCreate(BaseModel):
-    subject_id: int
-    content: str
-    question_type: str = "mcq"
-    difficulty: str = "medium"
+    question_number: int
+    question_type: Optional[str] = "multiple_choice"  # multiple_choice | true_false | short_answer
+    question_text: str
+    option_a: Optional[str] = None
+    option_b: Optional[str] = None
+    option_c: Optional[str] = None
+    option_d: Optional[str] = None
+    correct_answer: str  # A/B/C/D hoặc T,F,T,F hoặc số (vd: "2.5")
     explanation: Optional[str] = None
-    answers: List[AnswerCreate] = []
+    topic_tag: Optional[str] = None
 
 
-class QuestionOut(BaseModel):
+class QuestionOut(QuestionCreate):
     id: int
-    subject_id: int
-    content: str
-    question_type: str
-    difficulty: str
-    source: str
-    topic: Optional[str] = None
-    explanation: Optional[str]
-    answers: List[AnswerOut] = []
+    exam_id: int
     model_config = {"from_attributes": True}
 
 
-class SubmitAnswerRequest(BaseModel):
-    question_id: int
-    answer_id: int
-
-
-class SubmitAnswerResult(BaseModel):
-    is_correct: bool
-    correct_answer_id: int
-    explanation: Optional[str] = None
-
-
-# ---------- Flashcard ----------
-class FlashcardCreate(BaseModel):
+class ExamCreate(BaseModel):
     subject_id: int
-    front: str
-    back: str
-
-
-class FlashcardOut(FlashcardCreate):
-    id: int
-    review_count: int
-    interval_days: int
-    next_review_date: Optional[datetime]
-    model_config = {"from_attributes": True}
-
-
-class FlashcardReviewRequest(BaseModel):
-    quality: int  # 0-5, người dùng tự đánh giá độ nhớ (0=quên hết, 5=nhớ rất rõ)
-# ---------- Tạo đề thi AI (chuẩn cấu trúc THPT) ----------
-class ExamGenerateRequest(BaseModel):
-    subject_id: int
-    part1_count: int = 12
-    part2_count: int = 4
-    part3_count: int = 6
-
-
-class ExamQuestionOut(BaseModel):
-    id: int
-    part: int
-    content: str
-    question_type: str
-    answers: List[AnswerOut] = []  # part1: 4 đáp án; part2: 4 ý (is_correct luôn trả False khi chưa nộp)
-    model_config = {"from_attributes": True}
+    title: str
+    description: Optional[str] = None
+    duration_minutes: int = 90
+    exam_type: str = "practice"  # practice | mock | national
+    province: Optional[str] = None
+    school_or_dept: Optional[str] = None
+    exam_year: Optional[int] = 2025
+    exam_round: Optional[str] = None
+    curriculum_standard: Optional[str] = "GDPT 2018"
+    is_authentic: Optional[bool] = True
+    questions: List[QuestionCreate] = []
 
 
 class ExamOut(BaseModel):
     id: int
     subject_id: int
     title: str
-    source_files: List[str] = []
-    part1: List[ExamQuestionOut] = []
-    part2: List[ExamQuestionOut] = []
-    part3: List[ExamQuestionOut] = []
-
-
-class ExamSubmitRequest(BaseModel):
-    mcq_answers: dict[int, int] = {}
-    truefalse_answers: dict[int, dict[int, bool]] = {}
-    short_answers: dict[int, str] = {}
-
-
-class ExamResultItem(BaseModel):
-    question_id: int
-    part: int
-    is_correct: Optional[bool] = None
-    earned_points: float
-    max_points: float
-    correct_display: str
-    explanation: Optional[str] = None
-
-
-class ExamSubmitResult(BaseModel):
-    total_score: float
-    part1_score: float
-    part2_score: float
-    part3_score: float
-    details: List[ExamResultItem]
-
-
-class ExamSummary(BaseModel):
-    id: int
-    title: str
-    subject_id: int
-    created_at: Optional[datetime]
+    description: Optional[str]
+    duration_minutes: int
+    exam_type: str
     total_questions: int
-    best_score: Optional[float] = None
+    province: Optional[str] = None
+    school_or_dept: Optional[str] = None
+    exam_year: Optional[int] = 2025
+    exam_round: Optional[str] = None
+    curriculum_standard: Optional[str] = "GDPT 2018"
+    is_authentic: Optional[bool] = True
+    source_origin: Optional[str] = None
+    created_at: Optional[datetime]
+    model_config = {"from_attributes": True}
+
+
+class ExamDetail(ExamOut):
+    questions: List[QuestionOut] = []
+
+
+class AnswerSubmit(BaseModel):
+    question_id: int
+    selected_answer: Optional[str] = None  # A/B/C/D hoặc null
+
+
+class AttemptSubmit(BaseModel):
+    exam_id: int
+    answers: List[AnswerSubmit]
+
+
+class UserAnswerOut(BaseModel):
+    question_id: int
+    selected_answer: Optional[str]
+    is_correct: bool
+    model_config = {"from_attributes": True}
+
+
+class AttemptOut(BaseModel):
+    id: int
+    exam_id: int
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
+    score: Optional[float]
+    total_correct: int
+    total_questions: int
+    status: str
+    model_config = {"from_attributes": True}
+
+
+class AttemptDetail(AttemptOut):
+    answers: List[UserAnswerOut] = []
+    exam: Optional[ExamOut] = None
+
+
+# ===================== THỐNG KÊ =====================
+
+class SubjectStats(BaseModel):
+    subject_id: int
+    subject_name: str
+    total_exams: int
+    completed_exams: int
+    remaining_exams: int
+    average_score: Optional[float]
+    best_score: Optional[float]
+    total_questions_done: int
+    total_correct: int
+    accuracy_percent: Optional[float]
+
+
+class OverallStats(BaseModel):
+    total_subjects: int
+    total_chapters: int
+    total_lessons: int
+    total_videos: int
+    total_documents: int
+    total_exams: int
+    total_attempts: int
+    completed_attempts: int
+    overall_average_score: Optional[float]
+    subjects: List[SubjectStats]
+
+
+# ===================== RAG / CHAT =====================
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class RAGResult(BaseModel):
+    chunk_text: str
+    source_type: str
+    subject_name: Optional[str] = None
+    chapter_name: Optional[str] = None
+    lesson_title: Optional[str] = None
+    video_id: Optional[int] = None
+    video_path: Optional[str] = None
+    relevance_score: float = 0.0

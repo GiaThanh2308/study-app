@@ -22,7 +22,7 @@ async def chat_stream(messages: list[dict], model: str = DEFAULT_MODEL) -> Async
         "stream": True,
     }
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=10.0)) as client:
+    async with httpx.AsyncClient(timeout=120) as client:
         async with client.stream("POST", OLLAMA_URL, json=payload) as response:
             async for line in response.aiter_lines():
                 if not line:

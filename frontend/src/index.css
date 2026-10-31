@@ -79,6 +79,27 @@ main, .page {
   padding: 28px 32px;
 }
 
+/* Nội dung markdown trong bong bóng chat (câu trả lời AI có công thức toán, danh sách...) */
+.md-content p { margin: 0 0 8px; }
+.md-content p:last-child { margin-bottom: 0; }
+.md-content ul, .md-content ol { margin: 4px 0 8px; padding-left: 20px; }
+.md-content li { margin-bottom: 3px; }
+.md-content code {
+  background: var(--color-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.md-content pre {
+  background: var(--color-bg);
+  padding: 10px 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.md-content pre code { background: none; padding: 0; }
+/* Công thức toán (KaTeX) tự đổi màu theo theme thay vì luôn đen */
+.md-content .katex { color: var(--color-text); }
+
 button {
   font-family: inherit;
   transition: filter 0.15s ease, transform 0.05s ease;
