@@ -3,6 +3,7 @@ Module Vision AI & OCR Parser:
 Đọc ảnh chụp đề thi (từ Facebook, Zalo, chụp màn hình điện thoại)
 và bóc tách thành các câu hỏi trắc nghiệm A-B-C-D kèm đáp án tự động.
 """
+import os
 import re
 import logging
 import base64
@@ -72,11 +73,14 @@ async def process_exam_image(
     """
     recognized_text = ""
 
+    # Ưu tiên api key được truyền vào, fallback sang biến môi trường
+    api_key = gemini_api_key or os.environ.get("GEMINI_API_KEY")
+
     # Nếu có cấu hình Gemini API Key, gọi Multimodal Vision
-    if gemini_api_key:
+    if api_key:
         try:
             b64_image = base64.b64encode(image_bytes).decode("utf-8")
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
             payload = {
                 "contents": [
                     {
@@ -100,23 +104,21 @@ async def process_exam_image(
         except Exception as e:
             logger.error(f"Lỗi gọi Gemini Vision API: {e}")
 
-    # Dự phòng giả lập nếu test local
+    # Nếu không có API key hoặc OCR không trả về kết quả, báo lỗi rõ ràng
     if not recognized_text:
-        recognized_text = """
-Câu 1: Cho hàm số y = f(x) có đạo hàm f'(x) = x(x-1). Hàm số đồng biến trên khoảng nào?
-A. (1; +∞)
-B. (0; 1)
-C. (-∞; 0)
-D. (-1; 1)
-
-Câu 2: Số phức liên hợp của z = 3 - 4i là:
-A. 3 + 4i
-B. -3 - 4i
-C. -3 + 4i
-D. 4 - 3i
-"""
+        raise ValueError(
+            "Không thể nhận diện nội dung ảnh. "
+            "Vui lòng cấu hình biến môi trường GEMINI_API_KEY hoặc thử lại với ảnh có chữ rõ hơn."
+        )
 
     parsed_questions = parse_exam_text_to_questions(recognized_text)
+
+    # Không tạo đề thi rỗng nếu parser không nhận ra câu hỏi nào
+    if not parsed_questions:
+        raise ValueError(
+            "Không phân tích được câu hỏi nào từ ảnh. "
+            "Hãy kiểm tra ảnh có đúng format đề thi trắc nghiệm (Câu 1:, A., B., C., D.)."
+        )
 
     # Tạo đề thi trong Database
     exam = Exam(

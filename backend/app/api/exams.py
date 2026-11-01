@@ -2,7 +2,7 @@
 import logging
 import re
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
 import httpx
@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from app.core.database import get_db
 from app.models import models, schemas
 from app.ai.vision_parser import parse_exam_text_to_questions
+from app.ai.document_harvester import harvest_and_create_exam
 
 logger = logging.getLogger("studyapp.exams")
 router = APIRouter()
@@ -338,6 +339,9 @@ def create_exam(payload: schemas.ExamCreate, db: Session = Depends(get_db)):
         description=payload.description,
         duration_minutes=payload.duration_minutes,
         exam_type=payload.exam_type,
+        school_id=payload.school_id,
+        exam_category=payload.exam_category or "mock",
+        semester=payload.semester or "HK1",
         province=payload.province or "Toàn quốc",
         school_or_dept=payload.school_or_dept or "Tự biên soạn",
         exam_year=payload.exam_year or 2025,
@@ -387,89 +391,26 @@ def delete_exam(exam_id: int, db: Session = Depends(get_db)):
 @router.post("/exams/harvest-from-web")
 async def harvest_exam_from_web(payload: WebHarvestRequest, db: Session = Depends(get_db)):
     """
-    Thu thập đề thi chuẩn nguyên bản 2025 từ Internet hoặc kho đề thi chính thức các Sở/Trường Chuyên.
-    Tuyệt đối KHÔNG tự chế câu hỏi giả hay chắp vá câu hỏi rời rạc.
+    Thu thập đề thi chuẩn nguyên bản từ Internet và Mạng Xã Hội (Facebook, Google Drive, ToanMath, ...).
+    Hỗ trợ tải và bóc tách trực tiếp file PDF, Word (.docx) và Ảnh chụp đề thi (GDPT 2018).
     """
     subject = db.get(models.Subject, payload.subject_id)
     if not subject:
         raise HTTPException(404, "Môn học không tồn tại")
 
-    query_norm = payload.topic_query.strip().lower()
-    exam_to_create = None
+    query = (payload.topic_query or "").strip()
+    web_url = (payload.web_url or "").strip()
 
-    # TRƯỜNG HỢP 1: Người dùng cung cấp link web cụ thể
-    if payload.web_url and payload.web_url.startswith("http"):
-        raw_exam_text = ""
-        page_title = payload.topic_query or "Đề thi trích xuất từ Internet"
-        try:
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                resp = await client.get(
-                    payload.web_url,
-                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-                )
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    # Bỏ các phần tử rác: menu, footer, script, quảng cáo
-                    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form"]):
-                        tag.decompose()
-                    
-                    if soup.title and soup.title.string:
-                        page_title = soup.title.string.strip()
-
-                    # Lấy text từ các thẻ nội dung chính
-                    content_tag = soup.find("main") or soup.find("article") or soup.find("body")
-                    if content_tag:
-                        raw_exam_text = content_tag.get_text(separator="\n")
-        except Exception as e:
-            logger.warning(f"Lỗi khi cào web {payload.web_url}: {e}")
-            raise HTTPException(400, f"Không thể kết nối đến đường dẫn web: {str(e)}")
-
-        if not raw_exam_text or len(raw_exam_text.strip()) < 100:
-            raise HTTPException(422, "Trang web không có đủ nội dung văn bản để trích xuất đề thi.")
-
-        parsed_questions = parse_exam_text_to_questions(raw_exam_text)
-        if not parsed_questions or len(parsed_questions) < 3:
-            raise HTTPException(
-                422,
-                "Không thể trích xuất đề thi hoàn chỉnh từ đường dẫn này. Để đảm bảo chất lượng ôn tập chuẩn kỳ thi 2025, "
-                "hệ thống chỉ chấp nhận đề thi nguyên bản có đầy đủ câu hỏi và bảng đáp án rõ ràng. Vui lòng kiểm tra lại link."
-            )
-
-        # Tạo đề thi từ web
-        exam = models.Exam(
+    # BƯỚC 1: Thu thập trực tiếp từ Internet, file PDF/Word/Drive hoặc Mạng xã hội
+    try:
+        exam = await harvest_and_create_exam(
+            db=db,
             subject_id=payload.subject_id,
-            title=f"🌐 {page_title[:100]}",
-            description=f"Đề thi nguyên bản được trích xuất từ liên kết: {payload.web_url}",
-            duration_minutes=50 if len(parsed_questions) <= 25 else 90,
-            exam_type="practice",
-            province=payload.province or "Toàn quốc",
-            school_or_dept=payload.school_or_dept or "Nguồn trực tuyến",
-            exam_year=2025,
-            exam_round="Trực tuyến",
-            curriculum_standard="GDPT 2018",
-            is_authentic=True,
-            source_origin=payload.web_url,
-            total_questions=len(parsed_questions),
+            query=query,
+            web_url=web_url if web_url else None,
+            province=payload.province,
+            school_or_dept=payload.school_or_dept,
         )
-        db.add(exam)
-        db.flush()
-
-        for q in parsed_questions:
-            db.add(models.ExamQuestion(
-                exam_id=exam.id,
-                question_number=q["question_number"],
-                question_text=q["question_text"],
-                option_a=q["option_a"],
-                option_b=q["option_b"],
-                option_c=q["option_c"],
-                option_d=q["option_d"],
-                correct_answer=q["correct_answer"],
-                explanation=q.get("explanation"),
-                topic_tag="Web Harvester",
-            ))
-
-        db.commit()
-        db.refresh(exam)
         return {
             "success": True,
             "exam_id": exam.id,
@@ -477,20 +418,21 @@ async def harvest_exam_from_web(payload: WebHarvestRequest, db: Session = Depend
             "province": exam.province,
             "school_or_dept": exam.school_or_dept,
             "total_questions": exam.total_questions,
-            "message": f"🎉 Đã trích xuất thành công đề thi nguyên bản '{exam.title}' ({exam.total_questions} câu)!",
+            "message": f"🎉 Đã thu thập và bóc tách thành công: '{exam.title}' ({exam.total_questions} câu kèm đáp án chuẩn)!",
         }
+    except Exception as e:
+        logger.warning(f"Thu thập trực tiếp từ Internet gặp lỗi ({e}). Tiến hành đối soát kho đề thi...")
 
-    # TRƯỜNG HỢP 2: Tìm kiếm đề thi chuẩn từ Kho đề thi chính thức 2025 của các Tỉnh / Trường Chuyên
+    # BƯỚC 2: Dự phòng nếu mạng lỗi hoặc không tìm thấy file phù hợp -> Tra cứu kho đề thi chuẩn
+    query_norm = query.lower()
     matched_repo_exam = None
     for item in AUTHENTIC_EXAM_REPOSITORY:
         if item["subject_name"].lower() != subject.name.lower():
             continue
-        # So khớp từ khóa với tên tỉnh, trường hoặc chuyên đề
         if any(kw in query_norm for kw in item["keywords"]):
             matched_repo_exam = item
             break
 
-    # Nếu không khớp từ khóa chi tiết, lấy đề thi chính thức tiêu biểu của môn học đó
     if not matched_repo_exam:
         for item in AUTHENTIC_EXAM_REPOSITORY:
             if item["subject_name"].lower() == subject.name.lower():
@@ -498,20 +440,13 @@ async def harvest_exam_from_web(payload: WebHarvestRequest, db: Session = Depend
                 break
 
     if not matched_repo_exam:
-        available_list = [
-            f"{e['school_or_dept']} ({e['province']})"
-            for e in AUTHENTIC_EXAM_REPOSITORY
-            if e["subject_name"].lower() == subject.name.lower()
-        ]
         raise HTTPException(
             404,
-            f"Không tìm thấy đề thi nguyên bản nào khớp với từ khóa '{payload.topic_query}'. "
-            f"Để bảo đảm chất lượng ôn tập, hệ thống KHÔNG tự bịa hoặc chắp vá câu hỏi. "
-            f"Các đề thi chuẩn 2025 hiện có sẵn: {', '.join(available_list) if available_list else 'Chưa có'}. "
-            "Vui lòng thử tìm kiếm theo tên các Sở hoặc Trường Chuyên này."
+            f"Không thể tìm thấy hoặc bóc tách đề thi từ từ khóa '{payload.topic_query}'. "
+            "Bạn có thể dán trực tiếp đường dẫn file PDF, Word (.docx) hoặc link Google Drive vào ô tìm kiếm."
         )
 
-    # Kiểm tra xem đề này đã được nạp vào DB chưa để tránh trùng lặp
+    # Kiểm tra xem đề này đã nạp chưa
     existing = db.query(models.Exam).filter(
         models.Exam.title == matched_repo_exam["title"],
         models.Exam.subject_id == payload.subject_id,
@@ -528,13 +463,33 @@ async def harvest_exam_from_web(payload: WebHarvestRequest, db: Session = Depend
             "message": f"🎯 Đã tìm thấy đề thi nguyên bản: {existing.title} [{existing.school_or_dept} - {existing.province}]!",
         }
 
-    # Nếu chưa có trong DB, tạo mới từ kho đề chuẩn
+    # Tạo đề thi từ kho dự phòng
+    prov = db.query(models.Province).filter(models.Province.name.ilike(f"%{matched_repo_exam['province']}%")).first()
+    school = None
+    if prov:
+        school = db.query(models.School).filter(
+            models.School.province_id == prov.id,
+            models.School.name == matched_repo_exam["school_or_dept"]
+        ).first()
+        if not school:
+            s_type = "dept" if "sở" in matched_repo_exam["school_or_dept"].lower() else "thpt"
+            school = models.School(
+                province_id=prov.id,
+                name=matched_repo_exam["school_or_dept"],
+                school_type=s_type
+            )
+            db.add(school)
+            db.flush()
+
     exam = models.Exam(
         subject_id=payload.subject_id,
         title=matched_repo_exam["title"],
         description=f"Đề thi nguyên bản chính thức của {matched_repo_exam['school_or_dept']} ({matched_repo_exam['province']}) - Chuẩn chương trình GDPT 2018.",
         duration_minutes=matched_repo_exam["duration_minutes"],
         exam_type="mock",
+        school_id=school.id if school else None,
+        exam_category="mock",
+        semester="HK1",
         province=matched_repo_exam["province"],
         school_or_dept=matched_repo_exam["school_or_dept"],
         exam_year=matched_repo_exam["exam_year"],
@@ -563,7 +518,7 @@ async def harvest_exam_from_web(payload: WebHarvestRequest, db: Session = Depend
 
     db.commit()
     db.refresh(exam)
-    logger.info(f"Đã nạp đề thi nguyên bản #{exam.id}: {exam.title} ({exam.school_or_dept} - {exam.province})")
+    logger.info(f"Đã nạp đề thi #{exam.id}: {exam.title} ({exam.total_questions} câu)")
 
     return {
         "success": True,
@@ -572,8 +527,24 @@ async def harvest_exam_from_web(payload: WebHarvestRequest, db: Session = Depend
         "province": exam.province,
         "school_or_dept": exam.school_or_dept,
         "total_questions": exam.total_questions,
-        "message": f"🎉 Đã nạp thành công đề thi nguyên bản: {exam.title} [{exam.school_or_dept} - {exam.province}]!",
+        "message": f"🎉 Đã nạp thành công đề thi: {exam.title} [{exam.school_or_dept} - {exam.province}]!",
     }
+
+
+@router.post("/exams/batch-sync-nationwide")
+async def batch_sync_nationwide_exams(
+    subject_ids: list[int] = Query(None),
+    limit: int = Query(5, description="Số đề mới tối đa nạp mỗi nguồn mỗi lần bấm"),
+    db: Session = Depends(get_db)
+):
+    """
+    ⚡ 1-Click: Động cơ cào đề thi liên tục (Dynamic Continuous Crawler).
+    Mỗi lần bấm nút sẽ tự động lật sang trang tiếp theo trên Internet,
+    tìm và nạp thêm các đề thi MỚI chưa từng có trong hệ thống.
+    Tự động bóc tách chuẩn GDPT 2018, xếp vào đúng 3 Miền -> Tỉnh -> Trường -> Loại đề.
+    """
+    from app.ai.batch_harvester import run_nationwide_batch_harvest
+    return await run_nationwide_batch_harvest(db, subject_ids, limit_per_source=limit)
 
 
 # ---------- Làm bài & Nộp bài ----------

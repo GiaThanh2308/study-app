@@ -71,6 +71,39 @@ class SubjectTree(SubjectOut):
     chapters: List[ChapterTree] = []
 
 
+# ===================== PHÂN CẤP ĐỊA LÝ & TRƯỜNG THPT =====================
+
+class SchoolOut(BaseModel):
+    id: int
+    province_id: int
+    name: str
+    school_type: str = "thpt"
+    exam_count: Optional[int] = 0
+    model_config = {"from_attributes": True}
+
+
+class ProvinceOut(BaseModel):
+    id: int
+    region_id: int
+    name: str
+    code: str
+    school_count: Optional[int] = 0
+    exam_count: Optional[int] = 0
+    schools: List[SchoolOut] = []
+    model_config = {"from_attributes": True}
+
+
+class RegionOut(BaseModel):
+    id: int
+    name: str
+    code: str
+    description: Optional[str] = None
+    province_count: Optional[int] = 0
+    exam_count: Optional[int] = 0
+    provinces: List[ProvinceOut] = []
+    model_config = {"from_attributes": True}
+
+
 # ===================== ĐỀ THI =====================
 
 class QuestionCreate(BaseModel):
@@ -98,6 +131,9 @@ class ExamCreate(BaseModel):
     description: Optional[str] = None
     duration_minutes: int = 90
     exam_type: str = "practice"  # practice | mock | national
+    school_id: Optional[int] = None
+    exam_category: Optional[str] = "mock"  # mock | midterm | final | regular
+    semester: Optional[str] = "HK1"
     province: Optional[str] = None
     school_or_dept: Optional[str] = None
     exam_year: Optional[int] = 2025
@@ -115,6 +151,9 @@ class ExamOut(BaseModel):
     duration_minutes: int
     exam_type: str
     total_questions: int
+    school_id: Optional[int] = None
+    exam_category: Optional[str] = "mock"
+    semester: Optional[str] = "HK1"
     province: Optional[str] = None
     school_or_dept: Optional[str] = None
     exam_year: Optional[int] = 2025

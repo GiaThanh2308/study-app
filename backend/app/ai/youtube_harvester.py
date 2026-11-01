@@ -111,7 +111,7 @@ def index_youtube_lecture(
                     youtube_id=video_id,
                     timestamp_start=chunk_start_time,
                     timestamp_end=start,
-                    source_url=f"https://www.youtube.com/watch?v=cv_{video_id}",
+                    source_url=f"https://www.youtube.com/watch?v={video_id}&t={chunk_start_time}",
                 )
                 db.add(kc)
                 chunk_index += 1

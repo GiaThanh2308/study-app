@@ -3,12 +3,14 @@ Kết nối tới Ollama đang chạy local (mặc định http://localhost:1143
 Ollama phải được cài và chạy nền sẵn trên máy (sau khi cài, nó tự chạy nền,
 không cần mở terminal riêng để "bật" nó).
 """
+import os
 import httpx
 import json
 from typing import AsyncGenerator
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-DEFAULT_MODEL = "qwen2.5:7b"  # đổi tên model ở đây nếu bạn pull model khác
+OLLAMA_BASE = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_URL = f"{OLLAMA_BASE}/api/chat"
+DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
 
 async def chat_stream(messages: list[dict], model: str = DEFAULT_MODEL) -> AsyncGenerator[str, None]:
@@ -42,7 +44,7 @@ async def check_ollama_available() -> bool:
     """Kiểm tra Ollama có đang chạy không, dùng cho endpoint health-check."""
     try:
         async with httpx.AsyncClient(timeout=3) as client:
-            resp = await client.get("http://localhost:11434/api/tags")
+            resp = await client.get(f"{OLLAMA_BASE}/api/tags")
             return resp.status_code == 200
     except Exception:
         return False

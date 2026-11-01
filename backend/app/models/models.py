@@ -94,6 +94,46 @@ class ChatMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+# ===================== HỆ THỐNG PHÂN CẤP ĐỊA LÝ & TRƯỜNG THPT (3 CẤP) =====================
+
+class Region(Base):
+    """3 Miền: Bắc, Trung, Nam"""
+    __tablename__ = "regions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, unique=True)   # "Bắc", "Trung", "Nam"
+    code = Column(String, nullable=False, unique=True)   # "bac", "trung", "nam"
+    description = Column(String, nullable=True)
+
+    provinces = relationship("Province", back_populates="region", cascade="all, delete-orphan", order_by="Province.name")
+
+
+class Province(Base):
+    """63 Tỉnh / Thành phố trực thuộc Miền"""
+    __tablename__ = "provinces"
+
+    id = Column(Integer, primary_key=True, index=True)
+    region_id = Column(Integer, ForeignKey("regions.id"), nullable=False)
+    name = Column(String, nullable=False, unique=True)   # "Hà Nội", "Đà Nẵng", "TP. Hồ Chí Minh",...
+    code = Column(String, nullable=False)                # "ha_noi", "da_nang",...
+
+    region = relationship("Region", back_populates="provinces")
+    schools = relationship("School", back_populates="province", cascade="all, delete-orphan", order_by="School.name")
+
+
+class School(Base):
+    """Trường THPT hoặc Sở GD&ĐT trực thuộc Tỉnh"""
+    __tablename__ = "schools"
+
+    id = Column(Integer, primary_key=True, index=True)
+    province_id = Column(Integer, ForeignKey("provinces.id"), nullable=False)
+    name = Column(String, nullable=False)                # "THPT Chuyên Hà Nội - Amsterdam", "Sở GD&ĐT Hà Nội",...
+    school_type = Column(String, default="thpt")         # "thpt" (Trường THPT) | "dept" (Sở GD&ĐT) | "cluster" (Cụm trường)
+
+    province = relationship("Province", back_populates="schools")
+    exams = relationship("Exam", back_populates="school")
+
+
 # ===================== HỆ THỐNG ĐỀ THI =====================
 
 class Exam(Base):
@@ -107,6 +147,11 @@ class Exam(Base):
     exam_type = Column(String, default="practice")  # practice | mock | national | image_imported
     source_origin = Column(String, nullable=True)   # "Sở GD&ĐT Hà Nội", "THPT Chuyên Lam Sơn", "web_harvester"
     
+    # Phân cấp kho đề thi (Miền -> Tỉnh -> Trường -> Loại đề)
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=True)
+    exam_category = Column(String, default="mock")      # mock (Thi thử) | midterm (Giữa kì) | final (Cuối kì) | regular (Thường xuyên)
+    semester = Column(String, default="HK1")            # HK1 | HK2 | CaNam
+
     # Thông tin nguồn gốc & chuẩn chương trình (Authentic Provenance)
     province = Column(String, nullable=True)            # Tỉnh / Thành phố (VD: Hà Nội, Nghệ An, Thanh Hóa)
     school_or_dept = Column(String, nullable=True)      # Trường THPT hoặc Sở GD&ĐT ra đề
@@ -119,6 +164,7 @@ class Exam(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     subject = relationship("Subject", back_populates="exams")
+    school = relationship("School", back_populates="exams")
     questions = relationship("ExamQuestion", back_populates="exam",
                              cascade="all, delete-orphan",
                              order_by="ExamQuestion.question_number")
@@ -167,7 +213,7 @@ class UserAnswer(Base):
     id = Column(Integer, primary_key=True, index=True)
     attempt_id = Column(Integer, ForeignKey("exam_attempts.id"), nullable=False)
     question_id = Column(Integer, ForeignKey("exam_questions.id"), nullable=False)
-    selected_answer = Column(String(1), nullable=True)
+    selected_answer = Column(String(50), nullable=True)  # Đủ chứa đáp án TF dạng "T,F,T,T"
     is_correct = Column(Boolean, default=False)
 
     attempt = relationship("ExamAttempt", back_populates="answers")
@@ -204,3 +250,16 @@ class KnowledgeChunk(Base):
     source_url = Column(String, nullable=True)      # URL gốc trên internet
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CrawlerState(Base):
+    """Lưu trạng thái crawler để mỗi lần bấm nút sẽ quét trang tiếp theo trên internet."""
+    __tablename__ = "crawler_state"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_key = Column(String, nullable=False, unique=True)  # "toanmath_mock", "loigiaihay_physics", "loigiaihay_chemistry"
+    current_page = Column(Integer, default=1)                  # Trang hiện tại đang quét
+    current_index = Column(Integer, default=0)                 # Index trong danh sách link
+    total_imported = Column(Integer, default=0)                # Tổng số đề đã nạp từ nguồn này
+    last_crawled_at = Column(DateTime(timezone=True), nullable=True)
+
