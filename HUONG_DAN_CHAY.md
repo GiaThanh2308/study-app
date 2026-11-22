@@ -46,7 +46,19 @@ Kho đề, bộ lọc, làm bài, chấm điểm, thống kê và sổ lỗi sai
 
 Mỗi nguồn vào hàng chờ duyệt trước khi xuất bản. File gốc được lưu theo SHA-256, không ghi đè; phần trích xuất là dữ liệu riêng. Đề web không cho sửa câu hỏi trích xuất. Đáp án chỉ được dùng chấm sau khi bạn xác minh. Nguồn trùng byte/nội dung được liên kết với đề có sẵn; đề gần trùng cần bạn xác nhận trước khi lưu thành bản riêng. PDF/DOCX/văn bản được trích xuất cục bộ; ảnh có thể dùng Gemini OCR nếu API key đã cấu hình, nếu không thì lưu ảnh để bạn nhập text thủ công. Đề chưa trích xuất được vẫn có thể lưu như nguồn tham khảo, nhưng không làm được bài tương tác.
 
-Sinh đề (Bước 8), tutor (Bước 9) và các trang tài liệu cũ vẫn đang chờ chuyển.
+### Sinh đề luyện theo ma trận (Bước 8)
+
+Mở **Sinh đề theo ma trận** ở thanh bên hoặc `/generate`. Có hai chế độ: đề đầy đủ theo đúng ma trận môn, hoặc bộ câu hỏi theo phần/chủ đề đã chọn. Việc tạo chạy từng phần và chỉ có tối đa một job đang hoạt động. Hủy có hiệu lực giữa các lần gọi Gemini; nếu API/quota lỗi, phần đã hợp lệ được giữ lại để bạn bấm tiếp tục. StudyApp không tự retry và không đổi sang nhà cung cấp/mô hình khác.
+
+Phân bổ nhận biết/thông hiểu/vận dụng và lớp lấy từ blueprint được lưu trong DB; các lệnh hỏi được chấm điểm có metadata riêng (mỗi ý a–d của câu đúng/sai là một đơn vị). Preset dễ/vừa/khó mặc định 30/50/20 là lựa chọn luyện tập của StudyApp, không phải tỷ lệ của Bộ. Nếu số nguyên không chia hết, app dùng largest remainder theo thứ tự trong blueprint. Với Lý/Hóa, khoảng 10+11 được chia gần đều giữa hai lớp vì ma trận không quy định tỷ lệ riêng cho từng lớp.
+
+Bộ câu hỏi theo chủ đề có thời gian ước tính theo số câu và chuẩn hóa tổng điểm về 10 để kết quả dễ đọc; đề đầy đủ giữ nguyên điểm từng phần trong ma trận.
+
+Đề AI tạo được lưu dạng nháp trong cùng database nhưng không xuất hiện ở kho đề cho tới khi bạn duyệt. Mở phần duyệt để xem và sửa nội dung, key, lời giải; xác nhận từng câu hoặc dùng **Tôi đã xem, xác nhận đáp án cả đề** sau khi rà toàn bộ. Sau đó xuất bản để bắt đầu làm bài; hệ thống tự chấm theo scoring config của đề. Phần đúng/sai của blueprint hiện dùng thang 2025: 1/2/3/4 ý đúng nhận 0,1/0,25/0,5/1 điểm. Key AI chưa xác nhận không thể dùng để làm bài có chấm điểm.
+
+Generation chỉ gửi yêu cầu sinh mới và blueprint tới Gemini Developer API. Dùng API key ở `backend/.env`; để chi phí bằng 0, không bật billing ở project Google và dừng khi hết free quota. Google có thể dùng dữ liệu free-tier để cải thiện sản phẩm theo chính sách hiện hành, nên không nhập nội dung riêng tư. Hạn mức free thay đổi; ứng dụng không đảm bảo số request cố định mỗi ngày.
+
+Tutor (Bước 9) và các trang tài liệu cũ vẫn đang chờ chuyển.
 
 ### Chấm phần trắc nghiệm đúng/sai
 
