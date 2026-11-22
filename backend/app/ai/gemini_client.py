@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncIterator
 import logging
+import re
 from typing import Any
 
 from app.core.settings import GEMINI_API_KEY, GEMINI_MAX_OUTPUT_TOKENS, GEMINI_MODEL
@@ -40,12 +41,16 @@ def _translate_api_error(error: Exception, errors: Any) -> GeminiClientError:
     code = getattr(error, "code", None)
     status = getattr(error, "status_code", None)
     message = getattr(error, "message", None)
-    if isinstance(message, str) and GEMINI_API_KEY:
+    if not isinstance(message, str) or not message:
+        message = str(error)
+    if GEMINI_API_KEY:
         message = message.replace(GEMINI_API_KEY, "[REDACTED]")
-    # Log only provider diagnostics; never log request contents, headers, or the API key.
+    message = re.sub(r"(?i)(x-goog-api-key|api[_ -]?key)(\s*[:=]\s*)[^\s,&]+", r"\1\2[REDACTED]", message)
+    message = re.sub(r"AIza[0-9A-Za-z_-]{20,}", "[REDACTED]", message)
+    # Log sanitized exception diagnostics only; never log request contents or headers.
     logger.error(
         "Gemini request failed: type=%s code=%s status=%s message=%s",
-        type(error).__name__, code, status, message[:500] if isinstance(message, str) else None,
+        type(error).__name__, code, status, message[:500],
     )
     if isinstance(error, errors.APIError):
         if error.code == 429:
