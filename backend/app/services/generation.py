@@ -8,7 +8,7 @@ import math
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -22,9 +22,11 @@ SECTION_OUTPUT_TOKENS = 8192
 
 
 class GeneratedQuestion(BaseModel):
-    model_config = ConfigDict(extra="forbid")
     stem: str = Field(min_length=12, max_length=12000)
-    options: dict[str, str] | None = None
+    option_a: str | None = None
+    option_b: str | None = None
+    option_c: str | None = None
+    option_d: str | None = None
     statements: list[str] | None = None
     answer_choice: str | None = None
     answer_true_false: list[bool] | None = None
@@ -34,7 +36,6 @@ class GeneratedQuestion(BaseModel):
 
 
 class SectionOutput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
     questions: list[GeneratedQuestion]
 
 
@@ -143,7 +144,7 @@ def build_allocations(rules: dict[str, Any], difficulty: dict[str, int], topics:
 def _section_prompt(subject: Subject, rules: dict[str, Any], section: dict[str, Any], mode: str) -> str:
     kind = section["type"]
     format_rules = {
-        "multiple_choice": "Mỗi câu có stem, đúng 4 lựa chọn A-D, answer_choice là một chữ A/B/C/D; statements, answer_true_false, accepted_answers, tolerance để null.",
+        "multiple_choice": "Mỗi câu có stem, các trường option_a, option_b, option_c, option_d chứa đúng 4 lựa chọn; answer_choice là một chữ A/B/C/D; statements, answer_true_false, accepted_answers, tolerance để null.",
         "true_false": "Mỗi nhóm có stem chung, đúng 4 mệnh đề statements theo thứ tự a,b,c,d, answer_true_false là đúng 4 boolean; các trường đáp án loại khác để null.",
         "short_answer": "Mỗi câu có stem, accepted_answers là các đáp án số tương đương dạng chuỗi và tolerance là sai số không âm; các trường đáp án loại khác để null.",
     }[kind]
@@ -205,10 +206,10 @@ def validate_section_output(section: dict[str, Any], raw: dict[str, Any], *, exi
         options: dict[str, str] | None = None
         answer: Any
         if kind == "multiple_choice":
-            options = item.options
-            if not options or set(key.upper() for key in options) != {"A", "B", "C", "D"}:
+            option_values = (item.option_a, item.option_b, item.option_c, item.option_d)
+            if any(value is None for value in option_values):
                 raise GenerationError(f"Câu {index + 1}: câu trắc nghiệm phải có đúng A, B, C, D.")
-            options = {key.upper(): str(value).strip() for key, value in options.items()}
+            options = {key: str(value).strip() for key, value in zip("ABCD", option_values)}
             if any(not value for value in options.values()) or len(set(v.casefold() for v in options.values())) != 4:
                 raise GenerationError(f"Câu {index + 1}: phương án rỗng hoặc bị trùng.")
             if (item.answer_choice or "").upper() not in options:

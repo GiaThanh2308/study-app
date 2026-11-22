@@ -31,7 +31,7 @@ Kiểm tra `http://127.0.0.1:8000/` và tài liệu API tại `http://127.0.0.1:
 Mở terminal PowerShell thứ hai:
 
 ```powershell
-cd D:\studyapp\frontend
+cd -d D:\studyapp\frontend
 npm install
 npm run dev -- --host 127.0.0.1
 ```

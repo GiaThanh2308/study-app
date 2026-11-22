@@ -1,0 +1,73 @@
+{
+  "source_filename": "matran.md",
+  "source_basis": "Chương trình Giáo dục phổ thông 2018 - Quyết định số 764/QĐ-BGDĐT",
+  "version": 1,
+  "subjects": [
+    {
+      "slug": "toan",
+      "name": "Toán",
+      "icon": "📐",
+      "duration_minutes": 90,
+      "question_count": 22,
+      "prompt_count": 34,
+      "grade_weight_percent": {"10": [5, 5], "11": [20, 25], "12": [70, 75]},
+      "cognitive_weight_percent": {"know": 40, "understand": 30, "apply": 30},
+      "sections": [
+        {"name": "Trắc nghiệm nhiều lựa chọn", "type": "multiple_choice", "questions": 12, "sub_prompts": 12, "points": 3.0, "points_per_question": 0.25},
+        {"name": "Trắc nghiệm đúng/sai", "type": "true_false", "questions": 4, "sub_prompts": 16, "points": 4.0, "scoring_per_correct_item_count": {"1": 0.1, "2": 0.25, "3": 0.5, "4": 1.0}},
+        {"name": "Trắc nghiệm trả lời ngắn", "type": "short_answer", "questions": 6, "sub_prompts": 6, "points": 3.0, "points_per_question": 0.5}
+      ],
+      "trends": {"real_world_modeling_question_count": [5, 7]},
+      "guardrails": ["Bám yêu cầu cần đạt GDPT 2018, không lệ thuộc một bộ sách giáo khoa.", "Không kiểm tra kiến thức bậc THCS.", "Phần II và III cần phân hóa; không tạo câu hỏi có thể khoanh may rủi."],
+      "topics": {
+        "12": ["Ứng dụng đạo hàm khảo sát và vẽ đồ thị: tính đơn điệu, cực trị, GTLN-GTNN, tiệm cận, tối ưu thực tế", "Nguyên hàm và tích phân: phương pháp cơ bản, diện tích hình phẳng, thể tích vật thể tròn xoay", "Tọa độ không gian Oxyz: điểm, vectơ, mặt phẳng, đường thẳng, mặt cầu, khoảng cách, góc", "Xác suất có điều kiện: xác suất toàn phần, công thức Bayes", "Thống kê mẫu ghép nhóm: khoảng biến thiên, khoảng tứ phân vị, phương sai, độ lệch chuẩn"],
+        "11": ["Lượng giác và phương trình lượng giác cơ bản", "Dãy số, cấp số cộng, cấp số nhân", "Hàm số mũ và logarit; phương trình, bất phương trình, lãi suất và tăng trưởng", "Quan hệ vuông góc trong không gian: góc, góc nhị diện, khoảng cách", "Quy tắc xác suất: hợp, giao, biến cố độc lập"],
+        "10": ["Bất phương trình và hệ bất phương trình bậc nhất hai ẩn; quy hoạch tuyến tính", "Hệ thức lượng trong tam giác", "Đại số tổ hợp: hoán vị, chỉnh hợp, tổ hợp"]
+      }
+    },
+    {
+      "slug": "vat-ly",
+      "name": "Vật lý",
+      "icon": "⚛️",
+      "duration_minutes": 50,
+      "question_count": 28,
+      "prompt_count": 40,
+      "grade_weight_percent": {"12": [70, 80]},
+      "combined_grade_weight_percent": {"10_and_11": [20, 30]},
+      "cognitive_weight_percent": {"know": 40, "understand": 30, "apply": 30},
+      "sections": [
+        {"name": "Trắc nghiệm nhiều lựa chọn", "type": "multiple_choice", "questions": 18, "sub_prompts": 18, "points": 4.5, "points_per_question": 0.25},
+        {"name": "Trắc nghiệm đúng/sai", "type": "true_false", "questions": 4, "sub_prompts": 16, "points": 4.0, "scoring_per_correct_item_count": {"1": 0.1, "2": 0.25, "3": 0.5, "4": 1.0}},
+        {"name": "Trắc nghiệm trả lời ngắn", "type": "short_answer", "questions": 6, "sub_prompts": 6, "points": 1.5, "points_per_question": 0.25}
+      ],
+      "guardrails": ["Giảm tải phép tính mẹo hoặc phức tạp toán học không thực tế.", "Đánh giá nhận thức vật lý, tìm hiểu tự nhiên dưới góc độ vật lý và vận dụng.", "Có nội dung thực nghiệm, đọc dụng cụ đo, bảng số liệu hoặc đồ thị và ứng dụng đời sống/kỹ thuật."],
+      "topics": {
+        "12": ["Vật lý nhiệt: cấu trúc chất, chuyển thể, nội năng, định luật I nhiệt động lực học, nhiệt dung riêng, nhiệt nóng chảy và hóa hơi riêng", "Khí lý tưởng: mô hình động học phân tử, Boyle, Charles, phương trình trạng thái, áp suất phân tử", "Từ trường: lực từ, cảm ứng từ, cảm ứng điện từ, máy phát điện xoay chiều, sóng điện từ", "Vật lý hạt nhân: cấu trúc hạt nhân, độ hụt khối, năng lượng liên kết, phân hạch, nhiệt hạch, phóng xạ và ứng dụng"],
+        "11": ["Dao động cơ: điều hòa, con lắc lò xo/đơn, năng lượng, cộng hưởng", "Sóng cơ và sóng âm: giao thoa, sóng dừng", "Điện trường: Coulomb, cường độ điện trường, điện thế, tụ điện", "Dòng điện không đổi: định luật Ohm, công và công suất điện"],
+        "10": ["Sai số phép đo, xử lý số liệu thực hành và đọc đồ thị", "Động lực học", "Công, năng lượng, công suất", "Động lượng và bảo toàn động lượng"]
+      }
+    },
+    {
+      "slug": "hoa-hoc",
+      "name": "Hóa học",
+      "icon": "🧪",
+      "duration_minutes": 50,
+      "question_count": 28,
+      "prompt_count": 40,
+      "grade_weight_percent": {"12": [70, 75]},
+      "combined_grade_weight_percent": {"10_and_11": [25, 30]},
+      "cognitive_weight_percent": {"know": 40, "understand": 30, "apply": 30},
+      "sections": [
+        {"name": "Trắc nghiệm nhiều lựa chọn", "type": "multiple_choice", "questions": 18, "sub_prompts": 18, "points": 4.5, "points_per_question": 0.25},
+        {"name": "Trắc nghiệm đúng/sai", "type": "true_false", "questions": 4, "sub_prompts": 16, "points": 4.0, "scoring_per_correct_item_count": {"1": 0.1, "2": 0.25, "3": 0.5, "4": 1.0}},
+        {"name": "Trắc nghiệm trả lời ngắn", "type": "short_answer", "questions": 6, "sub_prompts": 6, "points": 1.5, "points_per_question": 0.25}
+      ],
+      "guardrails": ["Không tạo bài tính toán đánh đố, phi thực tế hoặc dùng quy đổi nhiều tầng.", "Tập trung bản chất hóa học, thí nghiệm và ứng dụng thực tiễn.", "Có thực hành, an toàn hóa chất, đời sống, sản xuất và môi trường."],
+      "topics": {
+        "12": ["Ester và lipid: khái niệm, danh pháp, tính chất, điều chế, xà phòng và chất giặt rửa", "Carbohydrate: glucose, fructose, saccharose, maltose, tinh bột, cellulose", "Hợp chất nitrogen: amine, amino acid, peptide, protein, enzyme", "Polymer và vật liệu polymer: chất dẻo, tơ, cao su, keo dán", "Pin điện và điện phân: thế điện cực chuẩn, pin Galvani, acquy, ứng dụng điện phân", "Đại cương kim loại, nhóm IA/IIA: tính chất, điều chế, hợp kim, ăn mòn, nước cứng", "Kim loại chuyển tiếp thứ nhất và phức chất: cấu hình electron, số oxi hóa, khái niệm và ứng dụng"],
+        "11": ["Cân bằng hóa học, chuyển dịch cân bằng, pH, chuẩn độ acid-base", "Nitrogen và sulfur: ammonia, ammonium, nitric acid, phú dưỡng, mưa acid, sulfuric acid", "Đại cương hóa hữu cơ: công thức, cấu tạo, đồng phân, danh pháp, phổ IR và MS", "Hydrocarbon và dẫn xuất: alkane, alkene, alkyne, arene, dẫn xuất halogen, alcohol, phenol, carbonyl, carboxylic acid"],
+        "10": ["Cấu tạo nguyên tử và bảng tuần hoàn", "Liên kết hóa học", "Phản ứng oxi hóa-khử", "Năng lượng hóa học và enthalpy phản ứng", "Tốc độ phản ứng hóa học", "Nguyên tố nhóm VIIA/halogen"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Local provider credentials
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local database, user imports, backups, and runtime artifacts
+backend/data/
+backend/data/backups/
+backend/studyapp.db
+studyapp.db
+backend/venv/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.py[cod]
