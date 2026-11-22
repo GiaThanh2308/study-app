@@ -1,9 +1,13 @@
 """Gemini Developer API adapter; requests run remotely, never on the local CPU."""
 
 from collections.abc import AsyncIterator
+import logging
 from typing import Any
 
 from app.core.settings import GEMINI_API_KEY, GEMINI_MAX_OUTPUT_TOKENS, GEMINI_MODEL
+
+
+logger = logging.getLogger("studyapp.gemini")
 
 
 class GeminiClientError(Exception):
@@ -33,6 +37,16 @@ def _require_key() -> None:
 
 
 def _translate_api_error(error: Exception, errors: Any) -> GeminiClientError:
+    code = getattr(error, "code", None)
+    status = getattr(error, "status_code", None)
+    message = getattr(error, "message", None)
+    if isinstance(message, str) and GEMINI_API_KEY:
+        message = message.replace(GEMINI_API_KEY, "[REDACTED]")
+    # Log only provider diagnostics; never log request contents, headers, or the API key.
+    logger.error(
+        "Gemini request failed: type=%s code=%s status=%s message=%s",
+        type(error).__name__, code, status, message[:500] if isinstance(message, str) else None,
+    )
     if isinstance(error, errors.APIError):
         if error.code == 429:
             return GeminiClientError(
@@ -115,6 +129,7 @@ async def generate_structured(contents: list[Any], response_schema: Any, *, max_
                     temperature=0.2,
                     response_mime_type="application/json",
                     response_schema=response_schema,
+                    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
                 ),
             )
     except Exception as exc:

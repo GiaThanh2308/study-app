@@ -1,6 +1,7 @@
 """Local, serialized generation jobs and answer-review lifecycle."""
 
 import asyncio
+import logging
 import threading
 from typing import Any
 from decimal import Decimal, InvalidOperation
@@ -22,6 +23,7 @@ from app.services.ingestion import FINGERPRINT_VERSION, _question_fingerprint
 
 
 router = APIRouter()
+logger = logging.getLogger("studyapp.generation")
 _worker_lock = asyncio.Lock()
 _start_lock = threading.Lock()
 _ACTIVE = {"queued", "running"}
@@ -261,6 +263,7 @@ async def _run_job(job_id: int) -> None:
                                      "total": len(request["allocation"]["sections"]),
                                      "question_groups": len(questions), "scored_prompts": request["allocation"]["prompt_count"]}
         except Exception as exc:
+            logger.error("Generation job failed unexpectedly: job_id=%s type=%s", job_id, type(exc).__name__)
             with SessionLocal.begin() as db:
                 job = db.get(GenerationJob, job_id)
                 if job:
